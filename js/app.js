@@ -1,0 +1,422 @@
+const SPRITE_URL = '../assets/icons.svg';
+async function loadIconSprite(){const host=document.querySelector('#icon-sprite');if(!host)return;try{host.innerHTML=await(await fetch(SPRITE_URL)).text()}catch(e){console.warn('SVG sprite failed to load',e)}}
+
+(async()=>{await loadIconSprite();
+
+/* ═════ дані ═════ */
+const UA=[[23.60,51.52],[24.35,51.90],[25.20,51.92],[26.40,51.85],[27.70,51.60],[28.75,51.55],[29.30,51.40],[30.55,51.40],[30.62,51.90],[31.60,52.10],[32.40,52.25],[33.20,52.35],[34.10,51.70],[34.40,51.25],[35.10,51.20],[35.40,50.55],[36.60,50.30],[37.45,50.40],[38.20,50.00],[39.20,49.85],[40.15,49.60],[40.20,49.20],[39.80,48.85],[39.95,48.30],[40.10,48.25],[39.75,47.85],[38.90,47.85],[38.30,47.60],[38.25,47.10],[37.50,47.10],[36.75,46.70],[35.85,46.65],[35.30,46.00],[34.85,46.15],[34.20,46.20],[33.75,46.15],[33.20,46.20],[32.60,46.35],[31.90,46.60],[31.50,46.60],[30.95,46.55],[30.75,46.45],[30.20,45.85],[29.70,45.65],[29.00,45.35],[28.50,45.45],[28.25,45.50],[28.90,45.90],[29.55,46.35],[29.90,46.50],[29.60,47.00],[29.20,47.50],[28.35,48.15],[27.60,48.45],[26.65,48.30],[26.00,48.20],[25.50,47.95],[24.90,47.72],[24.20,47.90],[23.60,48.00],[23.15,48.10],[22.60,48.10],[22.15,48.40],[22.55,49.08],[22.70,49.40],[23.30,50.35],[24.10,50.85]];
+const CRIMEA=[[33.65,46.15],[34.25,46.05],[34.90,45.88],[35.50,45.95],[36.00,45.60],[36.60,45.45],[36.35,45.15],[35.60,45.10],[35.00,44.85],[34.40,44.70],[33.80,44.45],[33.45,44.60],[33.55,45.00],[33.20,45.20],[32.50,45.35],[32.60,45.60],[33.30,45.75],[33.10,46.00]];
+const FRONT=[[37.05,50.30],[37.60,49.85],[37.90,49.10],[38.15,48.90],[38.10,48.60],[37.90,48.35],[37.25,48.28],[37.05,47.95],[36.85,47.85],[36.25,47.70],[35.80,47.58],[35.10,47.50],[34.85,47.40],[33.65,47.05],[32.75,46.65],[32.35,46.42]];
+const OCC=FRONT.concat([[32.60,46.35],[33.20,46.20],[33.75,46.15],[34.20,46.20],[34.85,46.15],[35.30,46.00],[35.85,46.65],[36.75,46.70],[37.50,47.10],[38.25,47.10],[38.30,47.60],[38.90,47.85],[39.75,47.85],[40.10,48.25],[39.95,48.30],[39.80,48.85],[40.20,49.20],[40.15,49.60],[39.20,49.85],[38.20,50.00],[37.45,50.40]]);
+const OBL=[['Волинська',25.30,51.15],['Рівненська',26.40,51.00],['Житомирська',28.60,50.60],['Київська',30.30,50.30],
+ ['Чернігівська',31.80,51.50],['Сумська',34.00,51.00],['Харківська',36.40,49.70],['Луганська',39.00,48.80],
+ ['Донецька',37.60,48.10],['Запорізька',35.40,47.30],['Дніпропетровська',34.50,48.30],['Полтавська',33.70,49.70],
+ ['Черкаська',31.30,49.20],['Кіровоградська',32.30,48.40],['Миколаївська',31.60,47.30],['Херсонська',33.40,46.70],
+ ['Одеська',30.00,46.60],['Вінницька',28.50,49.10],['Хмельницька',27.00,49.50],['Тернопільська',25.60,49.40],
+ ['Львівська',23.80,49.70],['Івано-Франківська',24.70,48.60],['Закарпатська',23.30,48.40],['Чернівецька',26.00,48.30]];
+const CRN='АР Крим';
+const CITY=[['Київ',30.52,50.45],['Харків',36.23,49.99],['Одеса',30.73,46.48],['Дніпро',35.05,48.47],['Львів',24.03,49.84],
+ ['Запоріжжя',35.14,47.84],['Миколаїв',31.99,46.98],['Суми',34.80,50.91],['Чернігів',31.29,51.50],['Полтава',34.55,49.59],
+ ['Вінниця',28.47,49.23],['Житомир',28.66,50.25],['Луцьк',25.34,50.75],['Херсон',32.62,46.64],['Кривий Ріг',33.39,47.91],
+ ['Черкаси',32.06,49.44],['Хмельницький',26.99,49.42],['Краматорськ',37.55,48.74],['Мелітополь',35.37,46.84],
+ ['Кропивницький',32.26,48.51],['Івано-Франківськ',24.71,48.92],['Ужгород',22.30,48.62],['Ізмаїл',28.84,45.35]];
+
+const TYPES=[
+ {id:'shahed',cat:'БПЛА',n:'Ударний БпЛА',ic:'ic-shahed',c:'#2f2f2f',role:'uav',sp:[150,195],alt:[600,2600]},
+ {id:'jetuav',cat:'БПЛА',n:'Реактивний БпЛА',ic:'ic-shahed',c:'#4a4a4a',role:'uav',sp:[430,560],alt:[1500,4200]},
+ {id:'recon',cat:'БПЛА',n:'Розвідувальний БпЛА',ic:'ic-recon',c:'#8d8f84',role:'uav',sp:[110,155],alt:[1200,3200]},
+ {id:'molnia',cat:'БПЛА',n:'БпЛА «Молнія»',ic:'ic-molniya',c:'#b98d4c',role:'uav',sp:[120,165],alt:[200,800]},
+ {id:'fpv',cat:'БПЛА',n:'FPV дрон',ic:'ic-fpv',c:'#2c3134',role:'uav',sp:[80,130],alt:[80,400]},
+ {id:'x101',cat:'РАКЕТИ',n:'Крилата ракета',ic:'ic-x101',c:'#00c9cc',role:'msl',sp:[720,890],alt:[50,300]},
+ {id:'band',cat:'РАКЕТИ',n:'Ракета «Бандероль»',ic:'ic-banderol',c:'#e02020',role:'msl',sp:[520,620],alt:[100,500]},
+ {id:'ball',cat:'РАКЕТИ',n:'Балістика',ic:'ic-iskander',c:'#6b6b3a',role:'msl',sp:[2400,3800],alt:[9000,45000]},
+ {id:'fast',cat:'РАКЕТИ',n:'Швидкісна ціль',ic:'ic-fast',c:'#7a5f9c',role:'msl',sp:[1100,1900],alt:[3000,12000]},
+ {id:'kab',cat:'ІНШЕ',n:'КАБ',ic:'ic-kab',c:'#5d6b48',role:'kab',sp:[600,800],alt:[1500,6000]}];
+const T=Object.fromEntries(TYPES.map(t=>[t.id,t]));
+const ROLE={uav:['БпЛА','#3a3a3a'],msl:['Ракети','#d13a2a'],avia:['Авіація','#3f4956'],kab:['КАБ','#5d6b48']};
+
+/* ═════ проєкція ═════ */
+const TS=256,Z8=8;
+const lon2x=(lo,z)=>(lo+180)/360*TS*2**z;
+const lat2y=(la,z)=>{const s=Math.sin(la*Math.PI/180);return (0.5-Math.log((1+s)/(1-s))/(4*Math.PI))*TS*2**z;};
+const x2lon=(x,z)=>x/(TS*2**z)*360-180;
+const y2lat=(y,z)=>{const n=Math.PI-2*Math.PI*y/(TS*2**z);return 180/Math.PI*Math.atan(0.5*(Math.exp(n)-Math.exp(-n)));};
+const w8=(lo,la)=>[lon2x(lo,Z8),lat2y(la,Z8)];
+
+/* ═════ стан ═════ */
+const DEF={size:1,labels:true,meta:false,trails:true,alarmFill:true,dim:true,sound:false};
+const S={...DEF,off:new Set()};
+const view={lat:48.55,lon:31.4,zoom:6.1};
+const MINZ=5,MAXZ=11;
+let base='osm',tileErr=0,targets=[],alarms=new Map(),levels=new Map(),cells=new Map();
+
+const $=q=>document.querySelector(q),$$=q=>[...document.querySelectorAll(q)];
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const pick=a=>a[(Math.random()*a.length)|0];
+const pad=n=>String(n|0).padStart(2,'0');
+const hhmm=d=>pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
+
+function tileURL(z,x,y){
+  const n=2**z;x=((x%n)+n)%n;
+  if(base==='osm') return 'https://tile.openstreetmap.org/'+z+'/'+x+'/'+y+'.png';
+  const s='abcd'[(x+y)%4];
+  return 'https://'+s+'.basemaps.cartocdn.com/light_all/'+z+'/'+x+'/'+y+(devicePixelRatio>1.4?'@2x':'')+'.png';
+}
+
+/* ═════ рушій мапи ═════ */
+function size(){const e=$('#mapwrap');return [e.clientWidth,e.clientHeight];}
+function paneT(z){const [w,h]=size(),s=2**(view.zoom-z);
+  return 'translate('+w/2+'px,'+h/2+'px) scale('+s+') translate('+(-lon2x(view.lon,z))+'px,'+(-lat2y(view.lat,z))+'px)';}
+function screenOf(lo,la){const [w,h]=size(),z=view.zoom;
+  return [lon2x(lo,z)-lon2x(view.lon,z)+w/2, lat2y(la,z)-lat2y(view.lat,z)+h/2];}
+function latlngAt(px,py){const [w,h]=size(),z=view.zoom;
+  return [y2lat(lat2y(view.lat,z)+py-h/2,z), x2lon(lon2x(view.lon,z)+px-w/2,z)];}
+
+function drawTiles(){
+  const tz=Math.max(MINZ,Math.min(MAXZ,Math.round(view.zoom)));
+  const [w,h]=size(),s=2**(view.zoom-tz);
+  let L=levels.get(tz);
+  if(!L){L={el:document.createElement('div'),tiles:new Map()};
+    L.el.className='lvl';L.el.style.zIndex=tz;$('#levels').appendChild(L.el);levels.set(tz,L);}
+  const cx=lon2x(view.lon,tz),cy=lat2y(view.lat,tz);
+  const hw=(w/2)/s+TS,hh=(h/2)/s+TS;
+  const x0=Math.floor((cx-hw)/TS),x1=Math.floor((cx+hw)/TS);
+  const y0=Math.max(0,Math.floor((cy-hh)/TS)),y1=Math.min(2**tz-1,Math.floor((cy+hh)/TS));
+  const need=new Set();
+  for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++){
+    const k=x+'_'+y;need.add(k);
+    if(L.tiles.has(k))continue;
+    const img=new Image();img.decoding='async';img.alt='';
+    img.style.left=(x*TS)+'px';img.style.top=(y*TS)+'px';
+    img.onload=()=>img.classList.add('ok');
+    img.onerror=()=>{if(base==='osm'&&++tileErr>6){setBase('light');toast('Тайли OSM недоступні, увімкнув світлу мапу');}};
+    img.src=tileURL(tz,x,y);
+    L.el.appendChild(img);L.tiles.set(k,img);
+  }
+  for(const [k,img] of L.tiles) if(!need.has(k)){img.remove();L.tiles.delete(k);}
+  for(const [z,lv] of levels){
+    lv.el.style.transform=paneT(z);
+    if(z!==tz){lv.stale=(lv.stale||0)+1;if(lv.stale>2){lv.el.remove();levels.delete(z);}}
+    else lv.stale=0;
+  }
+  $('#vg').setAttribute('transform','translate('+w/2+','+h/2+') scale('+2**(view.zoom-Z8)+') translate('+(-lon2x(view.lon,Z8))+','+(-lat2y(view.lat,Z8))+')');
+  scaleBar();
+}
+function scaleBar(){
+  const mpp=156543.03392*Math.cos(view.lat*Math.PI/180)/2**view.zoom;
+  const target=130*mpp,steps=[1,2,5,10,20,50,100,200,500,1000];
+  const km=steps.find(v=>v*1000>=target*0.55)||1000;
+  $('#scBar').style.width=Math.round(km*1000/mpp)+'px';
+  $('#scTxt').textContent=km+' км';
+}
+
+/* ═════ векторний шар ═════ */
+function poly(pts){return pts.map((p,i)=>(i?'L':'M')+w8(p[0],p[1]).map(v=>v.toFixed(1)).join(' ')).join('')+'Z';}
+function line(pts){return pts.map((p,i)=>(i?'L':'M')+w8(p[0],p[1]).map(v=>v.toFixed(1)).join(' ')).join('');}
+function clipHalf(pl,A,B){
+  const mx=(A[0]+B[0])/2,my=(A[1]+B[1])/2,nx=B[0]-A[0],ny=B[1]-A[1];
+  const sd=p=>(p[0]-mx)*nx+(p[1]-my)*ny,out=[];
+  for(let i=0;i<pl.length;i++){
+    const P=pl[i],Q=pl[(i+1)%pl.length],sp=sd(P),sq=sd(Q);
+    if(sp<=0)out.push(P);
+    if((sp<0&&sq>0)||(sp>0&&sq<0)){const t=sp/(sp-sq);out.push([P[0]+(Q[0]-P[0])*t,P[1]+(Q[1]-P[1])*t]);}
+  }
+  return out;
+}
+function buildVector(){
+  const ua8=UA.map(p=>w8(p[0],p[1])),cr8=CRIMEA.map(p=>w8(p[0],p[1]));
+  const seeds=OBL.map(o=>({n:o[0],p:w8(o[1],o[2])}));
+  for(const s of seeds){
+    let pl=ua8;
+    for(const o of seeds) if(o!==s&&pl.length) pl=clipHalf(pl,s.p,o.p);
+    cells.set(s.n,pl);
+  }
+  cells.set(CRN,cr8);
+  const dOf=n=>{const c=cells.get(n);return c&&c.length?'M'+c.map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join('L')+'Z':'M0 0';};
+
+  let g='<defs><pattern id="occp" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45) scale(0.06)">';
+  g+='<rect width="7" height="7" fill="rgba(214,88,66,0.16)"/><line x1="0" y1="0" x2="0" y2="7" stroke="rgba(178,44,28,0.55)" stroke-width="2.4"/></pattern></defs>';
+  g+='<path id="dimmer" fill="rgba(38,44,58,0.40)" fill-rule="evenodd" d="M0 0H65536V65536H0Z'+poly(UA)+poly(CRIMEA)+'"/>';
+  g+='<g id="alarmG">'+[...OBL.map(o=>o[0]),CRN].map(n=>
+      '<path class="ac" data-o="'+n+'" d="'+dOf(n)+'" fill="rgba(206,44,28,0.24)" stroke="rgba(160,30,18,0.45)" stroke-width="1" vector-effect="non-scaling-stroke" opacity="0" style="transition:opacity .6s cubic-bezier(0.16,1,0.3,1)"/>').join('')+'</g>';
+  g+='<path d="'+poly(OCC)+poly(CRIMEA)+'" fill="url(#occp)" stroke="rgba(160,30,18,0.5)" stroke-width="1" vector-effect="non-scaling-stroke"/>';
+  g+='<path class="front-line" d="'+line(FRONT)+'" fill="none" stroke="rgba(140,24,14,0.85)" stroke-width="2.4" stroke-dasharray="7 5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>';
+  g+='<path d="'+poly(UA)+poly(CRIMEA)+'" fill="none" stroke="rgba(40,36,32,0.8)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>';
+  g+='<g id="trails"></g>';
+  $('#vg').innerHTML=g;
+  $('#lgOcc').style.background='repeating-linear-gradient(45deg,rgba(178,44,28,.55) 0 2px,rgba(214,88,66,.15) 2px 5px)';
+}
+function paintAlarms(){
+  $$('#alarmG .ac').forEach(p=>p.setAttribute('opacity',(S.alarmFill&&alarms.has(p.dataset.o))?'1':'0'));
+  const d=$('#dimmer'); if(d) d.style.display=S.dim?'':'none';
+}
+
+/* ═════ цілі ═════ */
+function near(lo,la,arr){let b=arr[0],d=1e9;for(const c of arr){const k=(c[1]-lo)**2*0.44+(c[2]-la)**2;if(k<d){d=k;b=c;}}return b;}
+function oblastAt(lo,la){if(la<46.3&&lo>32.4&&lo<36.7)return CRN;return near(lo,la,OBL)[0];}
+const DIRS=['північний','північно-східний','східний','південно-східний','південний','південно-західний','західний','північно-західний'];
+const dirName=h=>DIRS[Math.round((((h%360)+360)%360)/45)%8];
+
+function spawn(quiet){
+  const t=pick(TYPES);let lo,la,hd,r=Math.random();
+  if(t.role==='avia'||t.id==='kab'||t.id==='fpv'||t.id==='molnia'){
+    const f=FRONT[(Math.random()*FRONT.length)|0];
+    lo=f[0]+rnd(0.3,1.5);la=f[1]+rnd(-0.5,0.5);hd=rnd(235,305);
+  }else if(r<0.42){lo=rnd(30.4,39.6);la=52.5;hd=rnd(150,215);}
+  else if(r<0.76){lo=40.4;la=rnd(47.8,51.6);hd=rnd(230,292);}
+  else{lo=rnd(30.4,36.6);la=44.3;hd=rnd(340,395)%360;}
+  const tg={t,lo,la,hd,sp:rnd(t.sp[0],t.sp[1]),alt:Math.round(rnd(t.alt[0],t.alt[1])/50)*50,
+    born:performance.now(),trail:[w8(lo,la)],lastTrail:0,el:null};
+  targets.push(tg);
+  if(!quiet){
+    const dst=near(lo+Math.sin(hd*Math.PI/180)*2.4,la+Math.cos(hd*Math.PI/180)*2.4,CITY);
+    log(t,'<b>'+t.n+'</b> · '+oblastAt(lo,la)+', курс '+dirName(hd),'орієнтовно на '+dst[0]);
+    if(S.sound&&t.role==='msl')beep(t.id==='ball'?520:380);
+  }
+}
+function mkEl(tg){
+  const d=document.createElement('div');
+  d.className='tgt fresh';d.style.setProperty('--tc',tg.t.c);
+  d.innerHTML='<svg class="ico" viewBox="0 0 100 100"><use href="#'+tg.t.ic+'" width="100" height="100"/></svg>'+
+              '<div class="tag"><span>'+tg.t.n+'</span><em></em></div>';
+  $('#marks').appendChild(d);
+  tg.el=d;tg.ico=d.querySelector('.ico');tg.tag=d.querySelector('.tag');tg.em=d.querySelector('em');
+  setTimeout(()=>d.classList.remove('fresh'),650);
+}
+function renderTargets(){
+  let n=0,by={uav:0,msl:0,avia:0,kab:0};
+  for(const tg of targets){
+    if(!tg.el)mkEl(tg);
+    if(S.off.has(tg.t.id)){tg.el.style.display='none';continue;}
+    tg.el.style.display='';n++;by[tg.t.role]++;
+    const [x,y]=screenOf(tg.lo,tg.la);
+    tg.el.style.transform='translate3d('+x.toFixed(1)+'px,'+y.toFixed(1)+'px,0)';
+    const px=Math.round(30*S.size);
+    tg.ico.style.width=px+'px';tg.ico.style.height=px+'px';
+    tg.ico.style.transform='translate(-50%,-50%) rotate('+tg.hd.toFixed(1)+'deg)';
+    tg.tag.style.display=S.labels?'':'none';
+    tg.tag.style.left=(px*0.55+5)+'px';
+    tg.tag.style.top='-11px';
+    if(S.meta){tg.em.style.display='';tg.em.textContent=Math.round(tg.sp)+' км/год · '+tg.alt.toLocaleString('uk-UA')+' м · '+Math.round(tg.hd)+'°';}
+    else tg.em.style.display='none';
+  }
+  $('#totN').textContent=n;
+  $('#chips').innerHTML=Object.keys(ROLE).map(r=>
+    '<span class="chip"><i style="background:'+ROLE[r][1]+'"></i>'+ROLE[r][0]+' <b>'+by[r]+'</b></span>').join('');
+}
+function renderTrails(){
+  const g=$('#trails');if(!g)return;
+  if(!S.trails){g.innerHTML='';return;}
+  g.innerHTML=targets.filter(t=>!S.off.has(t.t.id)&&t.trail.length>1).map(t=>
+    '<path d="M'+t.trail.map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join('L')+
+    '" fill="none" stroke="'+t.t.c+'" stroke-opacity=".4" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>').join('');
+}
+
+const SPEEDUP=42;let last=performance.now();
+function loop(now){
+  const dt=Math.min(now-last,150);last=now;
+  const hrs=dt/3600000*SPEEDUP;
+  for(let i=targets.length-1;i>=0;i--){
+    const tg=targets[i],r=tg.hd*Math.PI/180;
+    tg.la+=Math.cos(r)*tg.sp*hrs/111;
+    tg.lo+=Math.sin(r)*tg.sp*hrs/(111*Math.cos(tg.la*Math.PI/180));
+    tg.hd+=Math.sin(now/2600+i)*0.028;
+    if(now-tg.lastTrail>1400){tg.lastTrail=now;tg.trail.push(w8(tg.lo,tg.la));if(tg.trail.length>14)tg.trail.shift();}
+    if(tg.lo<21||tg.lo>41.4||tg.la<43.4||tg.la>53.2||now-tg.born>210000){
+      if(tg.el)tg.el.remove();targets.splice(i,1);
+      if(Math.random()<0.5)log(tg.t,'<b>Ціль збита</b> · '+oblastAt(tg.lo,tg.la),tg.t.n+', супровід завершено','down');
+    }
+  }
+  renderTargets();
+  requestAnimationFrame(loop);
+}
+
+/* ═════ стрічка ═════ */
+function log(type,html,sub,kind){
+  const li=document.createElement('li');li.dataset.k=kind||'move';
+  const ico=type?'<svg class="ic" viewBox="0 0 100 100"><use href="#'+type.ic+'" width="100" height="100"/></svg>'
+   :'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="'+(kind==='alarm'?'rgb(190,40,26)':'currentColor')+'" stroke-width="2.4" stroke-linecap="round"><path d="M12 3a6 6 0 0 0-6 6v4l-2 3h16l-2-3V9a6 6 0 0 0-6-6ZM10 20h4"/></svg>';
+  li.innerHTML='<time>'+hhmm(new Date())+'</time><div><div class="txt">'+ico+'<span>'+html+'</span></div>'+(sub?'<div class="sub">'+sub+'</div>':'')+'</div>';
+  const f=$('#feed'),em=f.querySelector('.empty');if(em)em.remove();
+  f.prepend(li);
+  while(f.children.length>45)f.lastElementChild.remove();
+  $('#roll').innerHTML='<span>'+hhmm(new Date())+' &nbsp;·&nbsp; '+html.replace(/<[^>]+>/g,'')+(sub?' · '+sub:'')+'</span>';
+}
+
+/* ═════ тривоги ═════ */
+const dur=t=>{const s=(Date.now()-t)/1000|0;return pad(s/60)+':'+pad(s%60);};
+function renderAlarms(){
+  const on=[...alarms.entries()].sort((a,b)=>a[1]-b[1]);
+  $('#aBig').textContent=on.length;
+  $('#tabN').textContent=on.length;
+  document.querySelector('.tab[data-pane="alarms"]').dataset.hot=on.length>0;
+  $('#aSub').textContent=on.length===1?'область під тривогою':'областей під тривогою';
+  $('#aLong').textContent=on.length?'найдовша '+dur(on[0][1]):'';
+  $('#aList').innerHTML=on.length?on.map(([n,t])=>
+    '<li class="on" data-go="'+n+'"><span class="fl"></span><span class="nm">'+n+'</span><span class="st" data-s="'+t+'">'+dur(t)+'</span></li>').join('')
+    :'<li style="padding-left:0;color:var(--ink-3);font-size:.875rem">Тривог немає. Тихо по всій країні.</li>';
+  $('#cList').innerHTML=[...OBL.map(o=>o[0]),CRN].filter(n=>!alarms.has(n)).map(n=>
+    '<li class="calm" data-go="'+n+'"><span class="fl"></span><span class="nm">'+n+'</span><span class="st">відбій</span></li>').join('');
+  paintAlarms();
+}
+function tickAlarms(){
+  $$('#aList .st').forEach(e=>e.textContent=dur(+e.dataset.s));
+  const on=[...alarms.values()].sort((a,b)=>a-b);
+  $('#aLong').textContent=on.length?'найдовша '+dur(on[0]):'';
+}
+function shuffleAlarms(){
+  const all=[...OBL.map(o=>o[0]),CRN];
+  if(Math.random()<0.56){
+    const free=all.filter(n=>!alarms.has(n));
+    if(free.length){const n=pick(free);alarms.set(n,Date.now());
+      log(null,'<b>Повітряна тривога</b> · '+n,'прямуйте в укриття','alarm');}
+  }else if(alarms.size>2){
+    const n=pick([...alarms.keys()]);alarms.delete(n);
+    log(null,'<b>Відбій тривоги</b> · '+n,'');
+  }
+  renderAlarms();
+}
+
+/* ═════ звук ═════ */
+let ac;
+function beep(f){
+  try{
+    ac=ac||new (window.AudioContext||window.webkitAudioContext)();
+    const o=ac.createOscillator(),g=ac.createGain();
+    o.type='sine';o.frequency.value=f;
+    g.gain.setValueAtTime(0.0001,ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.07,ac.currentTime+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+0.35);
+    o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+0.36);
+  }catch(e){}
+}
+
+/* ═════ UI ═════ */
+function buildTypes(){
+  let html='',cat='';
+  for(const t of TYPES){
+    if(t.cat!==cat){cat=t.cat;html+='<li class="cat eyebrow">'+cat+'</li>';}
+    html+='<li><button class="chk" role="checkbox" aria-checked="true" data-t="'+t.id+'">'+
+      '<svg class="gl" viewBox="0 0 100 100"><use href="#'+t.ic+'" width="100" height="100"/></svg>'+
+      '<span class="nm">'+t.n+'</span><span class="box"></span></button></li>';
+  }
+  $('#typeList').innerHTML=html;
+}
+function sync(){
+  $$('.sw').forEach(b=>b.setAttribute('aria-checked',String(S[b.dataset.p])));
+  $$('.chk').forEach(b=>b.setAttribute('aria-checked',String(!S.off.has(b.dataset.t))));
+  $('#rSize').value=S.size;
+  $('#vSize').textContent=S.size.toFixed(1).replace('.',',')+'×';
+  renderTargets();renderTrails();paintAlarms();
+}
+let toastT;
+function toast(m){const e=$('#toast');e.textContent=m;e.classList.add('on');
+  clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('on'),2800);}
+function setBase(b){
+  if(base===b)return;base=b;tileErr=0;
+  for(const [,L] of levels)L.el.remove();
+  levels.clear();
+  $$('.basemaps button').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.bm===b)));
+  drawTiles();
+}
+function flyTo(lat,lon,zoom){
+  const s={...view},e={lat,lon,zoom:zoom==null?view.zoom:zoom},t0=performance.now(),D=620;
+  (function step(t){
+    const k=Math.min(1,(t-t0)/D),p=1-Math.pow(1-k,4);
+    view.lat=s.lat+(e.lat-s.lat)*p;view.lon=s.lon+(e.lon-s.lon)*p;view.zoom=s.zoom+(e.zoom-s.zoom)*p;
+    drawTiles();renderTargets();
+    if(k<1)requestAnimationFrame(step);
+  })(t0);
+}
+function zoomAt(dz,px,py){
+  const [w,h]=size();
+  if(px==null){px=w/2;py=h/2;}
+  const [la,lo]=latlngAt(px,py);
+  const nz=Math.max(MINZ,Math.min(MAXZ,view.zoom+dz));
+  if(nz===view.zoom)return;
+  view.zoom=nz;
+  view.lon=x2lon(lon2x(lo,nz)-(px-w/2),nz);
+  view.lat=y2lat(lat2y(la,nz)-(py-h/2),nz);
+  drawTiles();renderTargets();
+}
+
+(function(){
+  const el=$('#mapwrap');const pts=new Map();let lastD=0;
+  el.addEventListener('pointerdown',e=>{
+    if(e.target.closest('.pill'))return;
+    el.setPointerCapture(e.pointerId);pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    el.classList.add('drag');
+  });
+  el.addEventListener('pointermove',e=>{
+    if(!pts.has(e.pointerId))return;
+    const p=pts.get(e.pointerId),dx=e.clientX-p.x,dy=e.clientY-p.y;
+    p.x=e.clientX;p.y=e.clientY;
+    if(pts.size===1){
+      const z=view.zoom;
+      view.lon=x2lon(lon2x(view.lon,z)-dx,z);
+      view.lat=y2lat(Math.max(1,lat2y(view.lat,z)-dy),z);
+      drawTiles();renderTargets();
+    }else if(pts.size===2){
+      const v=[...pts.values()],d=Math.hypot(v[0].x-v[1].x,v[0].y-v[1].y);
+      if(lastD){const r=el.getBoundingClientRect();
+        zoomAt(Math.log2(d/lastD),(v[0].x+v[1].x)/2-r.left,(v[0].y+v[1].y)/2-r.top);}
+      lastD=d;
+    }
+  });
+  const up=e=>{pts.delete(e.pointerId);if(pts.size<2)lastD=0;if(!pts.size)el.classList.remove('drag');};
+  el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+  el.addEventListener('wheel',e=>{e.preventDefault();const r=el.getBoundingClientRect();
+    zoomAt(-e.deltaY*(e.deltaMode===1?0.05:0.0022),e.clientX-r.left,e.clientY-r.top);},{passive:false});
+  el.addEventListener('dblclick',e=>{const r=el.getBoundingClientRect();zoomAt(1,e.clientX-r.left,e.clientY-r.top);});
+})();
+
+document.addEventListener('click',e=>{
+  const tab=e.target.closest('.tab');
+  if(tab){$$('.tab').forEach(t=>t.setAttribute('aria-selected',String(t===tab)));
+    $$('.pane').forEach(p=>p.toggleAttribute('data-on',p.dataset.pane===tab.dataset.pane));
+    $('#rail').classList.add('tall');return;}
+  const sw=e.target.closest('.sw');
+  if(sw){S[sw.dataset.p]=!S[sw.dataset.p];sync();if(sw.dataset.p==='sound'&&S.sound)beep(440);return;}
+  const chk=e.target.closest('.chk');
+  if(chk){const id=chk.dataset.t;S.off.has(id)?S.off.delete(id):S.off.add(id);sync();return;}
+  if(e.target.closest('#reset')){Object.assign(S,DEF);S.off=new Set();sync();toast('Налаштування скинуто');return;}
+  const bm=e.target.closest('.basemaps button');if(bm){setBase(bm.dataset.bm);return;}
+  if(e.target.closest('#zin')){zoomAt(1);return;}
+  if(e.target.closest('#zout')){zoomAt(-1);return;}
+  if(e.target.closest('#home')){flyTo(48.55,31.4,6.1);return;}
+  if(e.target.closest('#handle')){$('#rail').classList.toggle('tall');return;}
+  if(e.target.closest('#openSupport')){$('#dSupport').showModal();return;}
+  if(e.target.closest('#closeSupport')){$('#dSupport').close();return;}
+  const cp=e.target.closest('#copyCard');
+  if(cp){if(navigator.clipboard)navigator.clipboard.writeText('4874100031515474');
+    cp.textContent='Скопійовано';setTimeout(()=>cp.textContent='Копіювати',1800);return;}
+  const go=e.target.closest('[data-go]');
+  if(go){const n=go.dataset.go,o=n===CRN?[CRN,34.2,45.3]:OBL.find(x=>x[0]===n);
+    if(o)flyTo(o[2],o[1],Math.max(view.zoom,7.4));}
+});
+$('#dSupport').addEventListener('click',e=>{if(e.target.id==='dSupport')$('#dSupport').close();});
+$('#rSize').addEventListener('input',e=>{S.size=+e.target.value;
+  $('#vSize').textContent=S.size.toFixed(1).replace('.',',')+'×';renderTargets();});
+
+/* ═════ старт ═════ */
+buildTypes();buildVector();drawTiles();sync();
+['Чернігівська','Сумська','Харківська','Полтавська','Київська','Донецька','Запорізька','Дніпропетровська']
+  .forEach(n=>alarms.set(n,Date.now()-rnd(150,3600)*1000));
+renderAlarms();
+$('#feed').innerHTML='<li class="empty">Очікування даних з каналу…</li>';
+for(let i=0;i<11;i++)spawn(true);
+[['shahed','Чернігівська, курс південний','орієнтовно на Київ'],
+ ['x101','Полтавська, курс західний','орієнтовно на Кременчук'],
+ ['ball','Харківська, пуск з півночі','швидкісна ціль'],
+ ['ball','Донецька, балістична ціль','швидкісна ціль']]
+ .forEach((a,i)=>setTimeout(()=>log(T[a[0]],'<b>'+T[a[0]].n+'</b> · '+a[1],a[2]),i*60));
+
+new ResizeObserver(()=>{drawTiles();renderTargets();}).observe($('#mapwrap'));
+setInterval(()=>{$('#clock').textContent=hhmm(new Date());tickAlarms();},1000);
+setInterval(()=>{if(targets.length<17)spawn();},5200);
+setInterval(shuffleAlarms,12000);
+setInterval(renderTrails,1500);
+requestAnimationFrame(loop);
+setTimeout(()=>$('#boot').classList.add('gone'),1200);
+
+})();

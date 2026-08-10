@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<!-- skill:chrome -->
+<link rel="stylesheet" href="css/styles.css">
+<script type="module" src="js/app.js"></script>
+<!-- /skill:chrome -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Flight Watch · Онлайн мапа повітряних цілей</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:      oklch(0.958 0.006 62);
+  --paper-2:    oklch(0.928 0.009 62);
+  --panel:      oklch(0.995 0.003 70);
+  --ink:        oklch(0.225 0.014 55);
+  --ink-2:      oklch(0.455 0.012 55);
+  --ink-3:      oklch(0.635 0.011 60);
+  --line:       oklch(0.885 0.008 62);
+  --line-soft:  oklch(0.935 0.006 62);
+  --sig:        oklch(0.545 0.212 27);
+  --sig-ink:    oklch(0.435 0.170 27);
+  --sig-wash:   oklch(0.545 0.212 27 / .08);
+  --ok:         oklch(0.555 0.105 152);
+  --amber:      oklch(0.700 0.150 72);
+  --sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;--sp-8:32px;
+  --e-out:cubic-bezier(0.16,1,0.3,1);
+  --e-quart:cubic-bezier(0.25,1,0.5,1);
+  --rail:372px;
+  --z-float:400;--z-rail:600;--z-toast:950;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Onest',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  font-size:16px;line-height:1.5;background:var(--paper-2);color:var(--ink);
+  -webkit-font-smoothing:antialiased;font-optical-sizing:auto;overflow:hidden}
+h1,h2,h3{text-wrap:balance;line-height:1.14;letter-spacing:-0.02em}
+button,input{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.eyebrow{font-size:.6875rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+:focus-visible{outline:2px solid var(--sig);outline-offset:3px;border-radius:4px}
+::selection{background:oklch(0.545 0.212 27/.18)}
+.app{display:grid;grid-template-columns:var(--rail) 1fr;height:100dvh}
+
+.rail{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;
+  min-height:0;position:relative;z-index:var(--z-rail)}
+.brand{display:flex;align-items:center;gap:var(--sp-3);padding:18px var(--sp-6) 16px}
+.brand .mk{width:44px;height:44px;flex:none;border-radius:12px;overflow:hidden;
+  box-shadow:0 2px 10px oklch(0.225 0.014 55/.18)}
+.brand h1{font-size:1.3125rem;font-weight:800;letter-spacing:-0.035em}
+.brand p{font-size:.75rem;color:var(--ink-3);margin-top:1px}
+.brand a{color:var(--sig);text-decoration:none;font-weight:600}
+.brand a:hover{text-decoration:underline;text-underline-offset:2px}
+.live{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:.625rem;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2)}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:beat 2.6s var(--e-out) infinite}
+@keyframes beat{0%{box-shadow:0 0 0 0 oklch(0.555 0.105 152/.55)}70%{box-shadow:0 0 0 9px oklch(0.555 0.105 152/0)}100%{box-shadow:0 0 0 0 oklch(0.555 0.105 152/0)}}
+
+.tabs{display:flex;padding:0 var(--sp-6);border-bottom:1px solid var(--line);gap:22px}
+.tab{padding:8px 1px 11px;font-size:.8125rem;font-weight:500;color:var(--ink-3);position:relative;
+  transition:color .16s var(--e-quart);white-space:nowrap}
+.tab:hover{color:var(--ink-2)}
+.tab::after{content:"";position:absolute;left:-2px;right:-2px;bottom:-1px;height:2px;background:var(--ink);
+  transform:scaleX(0);transform-origin:left;transition:transform .3s var(--e-out)}
+.tab[aria-selected=true]{color:var(--ink);font-weight:700}
+.tab[aria-selected=true]::after{transform:scaleX(1)}
+.tab b{font-family:'JetBrains Mono',monospace;font-size:.6875rem;font-weight:600;margin-left:5px;
+  padding:1px 5px;border-radius:20px;background:var(--paper-2);color:var(--ink-2)}
+.tab[data-hot=true] b{background:var(--sig);color:oklch(0.99 0.003 70)}
+
+.panes{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;
+  scrollbar-color:var(--line) transparent}
+.pane{display:none;padding:var(--sp-5) var(--sp-6) var(--sp-8)}
+.pane[data-on]{display:block}
+
+.feed{list-style:none}
+.feed li{display:grid;grid-template-columns:50px 1fr;gap:var(--sp-3);padding:10px 0;
+  border-bottom:1px solid var(--line-soft);animation:slip .55s var(--e-out) both}
+.feed li:first-child{padding-top:2px}
+@keyframes slip{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.feed time{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;font-size:.75rem;
+  color:var(--ink-3);padding-top:3px}
+.feed .txt{font-size:.9375rem;line-height:1.4;text-wrap:pretty;display:flex;gap:8px;align-items:flex-start}
+.feed .txt b{font-weight:600}
+.feed .sub{font-size:.75rem;color:var(--ink-3);margin-top:2px;padding-left:22px}
+.feed .ic{width:14px;height:14px;flex:none;margin-top:3px}
+.feed li[data-k=alarm]{background:linear-gradient(90deg,var(--sig-wash),transparent 78%);
+  margin:0 -14px;padding:10px 14px;border-radius:8px;border-bottom-color:transparent}
+.feed li[data-k=alarm] b{color:var(--sig-ink)}
+.feed li[data-k=down] b{color:var(--ok)}
+.feed .empty{padding:var(--sp-8) 0;text-align:center;color:var(--ink-3);font-size:.875rem;border:0;display:block}
+
+.ahead{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--sp-4);margin-bottom:var(--sp-5)}
+.ahead .n{font-size:2.5rem;font-weight:800;letter-spacing:-0.05em;line-height:.9;font-family:'JetBrains Mono',monospace}
+.ahead small{font-size:.8125rem;color:var(--ink-2);display:block;margin-top:5px}
+.obl{list-style:none}
+.obl li{display:flex;align-items:center;gap:var(--sp-3);padding:8px 11px;border-radius:8px;
+  transition:background .16s var(--e-quart);cursor:pointer}
+.obl li:hover{background:var(--paper)}
+.obl .nm{font-size:.9375rem;font-weight:500}
+.obl .st{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:.75rem;
+  font-variant-numeric:tabular-nums;color:var(--ink-3)}
+.obl .fl{width:9px;height:9px;border-radius:50%;background:var(--line);flex:none}
+.obl li.on{background:var(--sig-wash)}
+.obl li.on .nm{font-weight:650}
+.obl li.on .st{color:var(--sig-ink);font-weight:600}
+.obl li.on .fl{background:var(--sig);animation:beat2 1.9s ease-out infinite}
+@keyframes beat2{0%{box-shadow:0 0 0 0 oklch(0.545 0.212 27/.6)}70%{box-shadow:0 0 0 8px oklch(0.545 0.212 27/0)}100%{box-shadow:0 0 0 0 oklch(0.545 0.212 27/0)}}
+.sep{display:flex;align-items:center;gap:10px;margin:var(--sp-6) 0 var(--sp-2)}
+.sep::after{content:"";flex:1;height:1px;background:var(--line)}
+.obl li.calm .nm{font-weight:400;color:var(--ink-2)}
+
+.grp{padding-bottom:var(--sp-6);margin-bottom:var(--sp-6);border-bottom:1px solid var(--line)}
+.grp:last-child{border:0;margin-bottom:0;padding-bottom:0}
+.grp>.eyebrow{display:block;margin-bottom:var(--sp-4)}
+.row{display:flex;align-items:flex-start;gap:var(--sp-4);padding:9px 0}
+.row .lbl{font-size:.9375rem;font-weight:500}
+.row .hint{font-size:.75rem;color:var(--ink-3);margin-top:3px;max-width:44ch;text-wrap:pretty}
+.row .ctl{margin-left:auto;flex:none;padding-top:2px}
+.sw{position:relative;width:42px;height:24px;border-radius:99px;background:var(--line);flex:none;
+  transition:background .22s var(--e-quart)}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;
+  background:var(--panel);box-shadow:0 1px 3px oklch(0.225 0.014 55/.3);transition:transform .3s var(--e-out)}
+.sw[aria-checked=true]{background:var(--sig)}
+.sw[aria-checked=true]::after{transform:translateX(18px)}
+.slide{display:flex;align-items:center;gap:var(--sp-4);padding-top:10px}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:3px;border-radius:3px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;
+  background:var(--sig);border:4px solid var(--panel);box-shadow:0 1px 5px oklch(0.225 0.014 55/.3);cursor:grab}
+input[type=range]::-moz-range-thumb{width:12px;height:12px;border:4px solid var(--panel);border-radius:50%;
+  background:var(--sig);cursor:grab}
+.sv{font-family:'JetBrains Mono',monospace;font-size:.8125rem;color:var(--sig-ink);font-weight:600;width:42px;text-align:right}
+.types{list-style:none}
+.types .cat{margin:var(--sp-4) 0 3px}
+.types .cat:first-child{margin-top:0}
+.chk{display:flex;align-items:center;gap:var(--sp-3);width:100%;padding:7px 10px;border-radius:8px;
+  text-align:left;transition:background .16s var(--e-quart)}
+.chk:hover{background:var(--paper)}
+.chk .gl{width:26px;height:26px;flex:none;transition:opacity .2s var(--e-quart),filter .2s var(--e-quart)}
+.chk .nm{font-size:.9375rem;font-weight:500}
+.chk .box{margin-left:auto;width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line);flex:none;
+  position:relative;transition:background .18s var(--e-quart),border-color .18s var(--e-quart)}
+.chk[aria-checked=true] .box{background:var(--ink);border-color:var(--ink)}
+.chk .box::after{content:"";position:absolute;inset:0;margin:auto;width:5px;height:9px;
+  border:solid var(--panel);border-width:0 2px 2px 0;transform:rotate(45deg) translateY(-1px) scale(.35);
+  opacity:0;transition:transform .24s var(--e-out),opacity .18s}
+.chk[aria-checked=true] .box::after{opacity:1;transform:rotate(45deg) translateY(-1px) scale(1)}
+.chk[aria-checked=false] .gl{opacity:.3;filter:grayscale(1)}
+.chk[aria-checked=false] .nm{color:var(--ink-3)}
+.reset{margin-top:var(--sp-3);width:100%;padding:11px;border-radius:9px;border:1px solid var(--line);
+  font-size:.875rem;font-weight:600;color:var(--sig-ink);transition:background .18s var(--e-quart),border-color .18s}
+.reset:hover{background:var(--sig-wash);border-color:oklch(0.545 0.212 27/.4)}
+.reset:active{transform:translateY(1px)}
+.support{border-top:1px solid var(--line);padding:var(--sp-4) var(--sp-6)}
+.support button{display:flex;align-items:center;gap:10px;width:100%;font-size:.875rem;font-weight:600;
+  color:var(--ink);transition:color .16s}
+.support button:hover{color:var(--sig-ink)}
+.support .arw{margin-left:auto;color:var(--ink-3)}
+
+.stage{position:relative;min-width:0;display:flex;flex-direction:column;background:var(--paper-2)}
+.bar{display:flex;align-items:center;gap:var(--sp-5);padding:0 var(--sp-6);height:54px;flex:none;
+  border-bottom:1px solid var(--line);background:var(--panel);z-index:var(--z-float)}
+.tot{display:flex;align-items:baseline;gap:8px;flex:none}
+.tot b{font-size:1.5rem;font-weight:800;letter-spacing:-0.045em;font-family:'JetBrains Mono',monospace}
+.tot span{font-size:.8125rem;color:var(--ink-2)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;min-width:0}
+.chip{display:flex;align-items:center;gap:7px;padding:4px 11px 4px 8px;border-radius:99px;
+  border:1px solid var(--line);font-size:.75rem;font-weight:500;white-space:nowrap}
+.chip i{width:9px;height:9px;border-radius:3px;flex:none}
+.chip b{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;font-weight:700}
+.stamp{margin-left:auto;display:flex;align-items:center;gap:16px;font-size:.75rem;color:var(--ink-3);white-space:nowrap}
+.demo{font-size:.625rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--amber);border:1px solid oklch(0.700 0.150 72/.4);padding:3px 8px;border-radius:5px}
+
+.mapwrap{position:relative;flex:1;min-height:0;overflow:hidden;background:oklch(0.90 0.012 220);
+  touch-action:none;cursor:grab}
+.mapwrap.drag{cursor:grabbing}
+.lvl{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
+.lvl img{position:absolute;width:256px;height:256px;display:block;opacity:0;
+  transition:opacity .4s var(--e-quart)}
+.lvl img.ok{opacity:1}
+#vec{position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:2}
+#levels{position:absolute;inset:0;z-index:0}
+#marks{position:absolute;inset:0;pointer-events:none;z-index:4}
+#marks .tgt{z-index:5}
+#marks{position:absolute;inset:0;pointer-events:none}
+.tgt{position:absolute;top:0;left:0;will-change:transform}
+.tgt .ico{position:absolute;left:0;top:0;overflow:visible;
+  filter:drop-shadow(0 1px 2px oklch(0.225 0.014 55/.45))}
+.tgt .tag{position:absolute;display:flex;flex-direction:column;gap:1px;white-space:nowrap;
+  padding:3px 9px 4px;border-radius:7px;background:oklch(0.225 0.014 55/.93);
+  color:oklch(0.99 0.003 70);font-size:.6875rem;font-weight:600;
+  box-shadow:0 2px 8px oklch(0.225 0.014 55/.3)}
+.tgt .tag::before{content:"";position:absolute;left:-4px;top:50%;width:8px;height:8px;
+  margin-top:-4px;border-radius:2px;background:var(--tc);transform:rotate(45deg)}
+.tgt .tag em{font-family:'JetBrains Mono',monospace;font-style:normal;font-size:.625rem;
+  font-weight:400;opacity:.8}
+.tgt.fresh{animation:pop .6s var(--e-out) both}
+@keyframes pop{from{opacity:0}to{opacity:1}}
+
+.fl-tl{position:absolute;top:var(--sp-4);left:var(--sp-4);display:flex;flex-direction:column;gap:8px;z-index:var(--z-float)}
+.fl-tr{position:absolute;top:var(--sp-4);right:var(--sp-4);z-index:var(--z-float)}
+.fl-bl{position:absolute;bottom:var(--sp-4);left:var(--sp-4);z-index:var(--z-float)}
+.fl-br{position:absolute;bottom:var(--sp-4);right:var(--sp-4);display:flex;align-items:flex-end;gap:10px;z-index:var(--z-float)}
+.pill{background:oklch(0.995 0.003 70/.95);border:1px solid var(--line);border-radius:11px;
+  box-shadow:0 4px 18px oklch(0.225 0.014 55/.1)}
+.zoom{display:flex;flex-direction:column;overflow:hidden}
+.zoom button{width:38px;height:38px;display:grid;place-items:center;color:var(--ink-2);
+  transition:background .15s var(--e-quart),color .15s}
+.zoom button:hover{background:var(--paper);color:var(--ink)}
+.zoom button:first-child{border-bottom:1px solid var(--line-soft)}
+.basemaps{display:flex;padding:3px;gap:2px}
+.basemaps button{padding:6px 12px;border-radius:8px;font-size:.75rem;font-weight:600;color:var(--ink-3);
+  transition:background .16s var(--e-quart),color .16s}
+.basemaps button:hover{color:var(--ink-2)}
+.basemaps button[aria-pressed=true]{background:var(--ink);color:oklch(0.99 0.003 70)}
+.home{padding:8px 13px;font-size:.8125rem;font-weight:600;display:flex;align-items:center;gap:7px;
+  color:var(--ink-2);transition:color .16s}
+.home:hover{color:var(--ink)}
+.legend{padding:12px 14px 13px}
+.legend ul{list-style:none;display:grid;gap:7px;margin-top:9px}
+.legend li{display:flex;align-items:center;gap:9px;font-size:.75rem;color:var(--ink-2)}
+.legend .sw2{width:16px;height:16px;flex:none}
+.legend .box{width:15px;height:11px;flex:none;border-radius:2px}
+.attrib{font-size:.6875rem;color:var(--ink-2);background:oklch(0.995 0.003 70/.82);padding:3px 8px;
+  border-radius:6px;border:1px solid var(--line-soft)}
+.attrib a{color:var(--ink-2)}
+.scaleb{text-align:right}
+.scaleb .b{height:6px;border:1.5px solid oklch(0.42 0.012 55);border-top:0;background:oklch(0.995 0.003 70/.5)}
+.scaleb span{font-family:'JetBrains Mono',monospace;font-size:.6875rem;color:var(--ink);
+  text-shadow:0 0 4px oklch(0.995 0.003 70),0 0 8px oklch(0.995 0.003 70)}
+
+.ticker{flex:none;height:46px;display:flex;align-items:center;gap:var(--sp-4);padding:0 var(--sp-6);
+  border-top:1px solid var(--line);background:var(--panel);font-size:.8125rem;overflow:hidden}
+.ticker .bg{font-size:.625rem;font-weight:800;letter-spacing:.11em;text-transform:uppercase;
+  color:oklch(0.99 0.003 70);background:var(--sig);padding:4px 9px;border-radius:5px;flex:none}
+.ticker .roll{flex:1;min-width:0;position:relative;height:22px;overflow:hidden}
+.ticker .roll span{position:absolute;inset:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  animation:rise .55s var(--e-out) both}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.ticker .disc{flex:none;font-size:.6875rem;color:var(--ink-3)}
+
+dialog{border:0;padding:0;background:transparent;max-width:min(460px,calc(100vw - 32px))}
+dialog::backdrop{background:oklch(0.225 0.014 55/.42);animation:fade .3s var(--e-out)}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+dialog[open]{animation:lift .38s var(--e-out)}
+@keyframes lift{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+.sheet{background:var(--panel);border-radius:18px;padding:var(--sp-8) var(--sp-8) var(--sp-6);
+  box-shadow:0 24px 70px oklch(0.225 0.014 55/.28);position:relative}
+.sheet h2{font-size:1.375rem;font-weight:700;display:flex;align-items:center;gap:9px}
+.sheet p{font-size:.875rem;color:var(--ink-2);margin-top:var(--sp-4);text-wrap:pretty;max-width:52ch}
+.sheet .x{position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:50%;
+  display:grid;place-items:center;color:var(--ink-3);transition:background .16s,color .16s}
+.sheet .x:hover{background:var(--paper);color:var(--ink)}
+.pay{margin-top:var(--sp-6);display:flex;flex-direction:column;gap:var(--sp-3)}
+.pay .k{display:flex;align-items:center;gap:10px}
+.pay code{font-family:'JetBrains Mono',monospace;font-size:1rem;letter-spacing:.03em;background:var(--paper);
+  padding:11px 14px;border-radius:9px;flex:1;text-align:center;font-weight:500}
+.pay .cp{padding:11px 15px;border-radius:9px;background:var(--ink);color:var(--panel);font-size:.8125rem;
+  font-weight:600;transition:background .16s}
+.pay .cp:hover{background:oklch(0.32 0.014 55)}
+.pay .jar{text-align:center;font-size:.875rem}
+.pay .jar a{color:var(--sig-ink);font-weight:600}
+
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;
+  background:var(--ink);color:oklch(0.99 0.003 70);padding:10px 18px;border-radius:10px;font-size:.8125rem;
+  font-weight:500;z-index:var(--z-toast);pointer-events:none;
+  transition:opacity .3s var(--e-out),transform .3s var(--e-out)}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.boot{position:absolute;inset:0;z-index:800;background:var(--paper);display:grid;place-items:center;
+  transition:opacity .55s var(--e-out),visibility .55s}
+.boot.gone{opacity:0;visibility:hidden}
+.boot .bars{display:flex;gap:5px;justify-content:center;margin-bottom:var(--sp-4)}
+.boot .bars i{width:4px;height:28px;background:var(--line);border-radius:2px;
+  animation:sweep 1.1s var(--e-quart) infinite;animation-delay:calc(var(--i)*95ms)}
+@keyframes sweep{0%,100%{background:var(--line);transform:scaleY(.5)}45%{background:var(--sig);transform:scaleY(1)}}
+.boot p{font-size:.8125rem;color:var(--ink-2);text-align:center}
+
+.handle{display:none}
+@media (max-width:1180px){:root{--rail:330px} .legend{display:none}}
+@media (max-width:900px){
+  .app{grid-template-columns:1fr;grid-template-rows:1fr auto}
+  .stage{order:1;min-height:0}
+  .rail{order:2;border-right:0;border-top:1px solid var(--line);border-radius:18px 18px 0 0;
+    box-shadow:0 -10px 34px oklch(0.225 0.014 55/.12);max-height:44dvh;transition:max-height .44s var(--e-out)}
+  .rail.tall{max-height:86dvh}
+  .handle{display:block;width:100%;padding:9px 0 3px}
+  .handle i{display:block;width:42px;height:4px;border-radius:2px;background:var(--line);margin:0 auto}
+  .brand{padding:6px var(--sp-4) 12px}
+  .brand .mk{width:38px;height:38px}
+  .live span{display:none}
+  .tabs,.pane,.support{padding-left:var(--sp-4);padding-right:var(--sp-4)}
+  .bar{height:auto;padding:10px var(--sp-4);flex-wrap:wrap;gap:var(--sp-3)}
+  .stamp{width:100%;margin-left:0;justify-content:space-between}
+  .ticker .disc{display:none}
+  .scaleb,.fl-tr{display:none}
+}
+
+@media (max-width:560px){
+  .bar{padding:8px 12px}
+  .tot span{font-size:.75rem}
+  .tot b{font-size:1.25rem}
+  .chips{max-width:100%;overflow:hidden;flex-wrap:nowrap}
+  .chip{padding:3px 8px;font-size:.6875rem}
+  .fl-tl{top:10px;left:10px}
+  .fl-bl{left:10px;bottom:10px}
+  .fl-br{right:10px;bottom:10px}
+  .legend{display:none}
+  .ticker{height:40px;padding:0 12px;gap:10px}
+  .brand h1{font-size:1.125rem}
+  .brand p{font-size:.6875rem}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+
+<div id="icon-sprite" aria-hidden="true"></div>
+
+<div class="app">
+  <aside class="rail" id="rail">
+    <button class="handle" id="handle" aria-label="Розгорнути панель"><i></i></button>
+    <div class="brand">
+      <svg class="mk" viewBox="0 0 44 44" aria-hidden="true">
+        <rect width="44" height="44" fill="oklch(0.225 0.014 55)"/>
+        <path d="M22 8 32 32 22 27 12 32Z" fill="oklch(0.545 0.212 27)"/>
+        <path d="M22 8v19" stroke="oklch(0.99 0.003 70)" stroke-width="1.1" opacity=".5"/>
+        <path d="M6 37a19 19 0 0 1 32 0" fill="none" stroke="oklch(0.99 0.003 70)" stroke-width="1.5" opacity=".28" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <h1>Flight Watch</h1>
+        <p>онлайн мапа цілей · <a href="https://t.me/flightwatch" target="_blank" rel="noopener">@flightwatch</a></p>
+      </div>
+      <div class="live"><i></i><span>Ефір</span></div>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-pane="feed">Ефір</button>
+      <button class="tab" role="tab" aria-selected="false" data-pane="alarms" data-hot="false">Тривоги <b id="tabN">0</b></button>
+      <button class="tab" role="tab" aria-selected="false" data-pane="set">Налаштування</button>
+    </div>
+
+    <div class="panes">
+      <section class="pane" data-pane="feed" data-on><ul class="feed" id="feed"></ul></section>
+
+      <section class="pane" data-pane="alarms">
+        <div class="ahead">
+          <div>
+            <span class="eyebrow">Повітряна тривога</span>
+            <div class="n" id="aBig">0</div>
+            <small id="aSub">областей під тривогою</small>
+          </div>
+          <span class="mono" style="font-size:.75rem;color:var(--ink-3)" id="aLong"></span>
+        </div>
+        <ul class="obl" id="aList"></ul>
+        <div class="sep"><span class="eyebrow">Спокійно</span></div>
+        <ul class="obl" id="cList"></ul>
+      </section>
+
+      <section class="pane" data-pane="set">
+        <div class="grp">
+          <span class="eyebrow">Вигляд цілей</span>
+          <div class="row" style="display:block;padding-top:0">
+            <div class="lbl">Видимий розмір цілі</div>
+            <div class="slide">
+              <input type="range" id="rSize" min="0.6" max="1.8" step="0.05" value="1" aria-label="Видимий розмір цілі">
+              <span class="sv mono" id="vSize">1,0×</span>
+            </div>
+          </div>
+          <div class="row">
+            <div><div class="lbl">Показати тип повітряної цілі</div>
+              <div class="hint">Підпис поруч із позначкою на мапі.</div></div>
+            <div class="ctl"><button class="sw" role="switch" aria-checked="true" data-p="labels" aria-label="Показати тип цілі"></button></div>
+          </div>
+          <div class="row">
+            <div><div class="lbl">Розширена інформація</div>
+              <div class="hint">Швидкість, висота та курс. Уся розширена інформація орієнтовна і може бути неточною.</div></div>
+            <div class="ctl"><button class="sw" role="switch" aria-checked="false" data-p="meta" aria-label="Розширена інформація"></button></div>
+          </div>
+          <div class="row">
+            <div><div class="lbl">Сліди руху</div>
+              <div class="hint">Пройдений маршрут цілі за останні хвилини.</div></div>
+            <div class="ctl"><button class="sw" role="switch" aria-checked="true" data-p="trails" aria-label="Сліди руху"></button></div>
+          </div>
+        </div>
+
+        <div class="grp">
+          <span class="eyebrow">Мапа</span>
+          <div class="row">
+            <div><div class="lbl">Підсвічувати тривоги</div>
+              <div class="hint">Області з активною тривогою заливаються червоним.</div></div>
+            <div class="ctl"><button class="sw" role="switch" aria-checked="true" data-p="alarmFill" aria-label="Підсвічувати тривоги"></button></div>
+          </div>
+          <div class="row">
+            <div><div class="lbl">Затемнити поза межами України</div>
+              <div class="hint">Фокус на території країни.</div></div>
+            <div class="ctl"><button class="sw" role="switch" aria-checked="true" data-p="dim" aria-label="Затемнити поза межами"></button></div>
+          </div>
+          <div class="row">
+            <div><div class="lbl">Звук нової цілі</div>
+              <div class="hint">Короткий сигнал при появі ракети або балістики.</div></div>
+            <div class="ctl"><button class="sw" role="switch" aria-checked="false" data-p="sound" aria-label="Звук нової цілі"></button></div>
+          </div>
+        </div>
+
+        <div class="grp">
+          <span class="eyebrow">Видимі цілі</span>
+          <ul class="types" id="typeList"></ul>
+        </div>
+
+        <div class="grp">
+          <span class="eyebrow">Скидання до початкових налаштувань</span>
+          <p class="hint" style="margin:0">Повертає розмір і підписи цілей, сліди, підсвітку тривог та перелік видимих типів до початкових значень.</p>
+          <button class="reset" id="reset">Скинути налаштування</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="support">
+      <button id="openSupport">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--sig)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+        Підтримати проєкт
+        <svg class="arw" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <div class="bar">
+      <div class="tot"><b id="totN">0</b><span>цілей у повітрі</span></div>
+      <div class="chips" id="chips"></div>
+      <div class="stamp">
+        <span class="demo">демо-потік</span>
+        <span>Оновлено <span class="mono" id="clock">--:--:--</span></span>
+      </div>
+    </div>
+
+    <div class="mapwrap" id="mapwrap">
+      <div id="levels"></div>
+      <svg id="vec"><g id="vg"></g></svg>
+      <div id="marks"></div>
+
+      <div class="fl-tl">
+        <div class="pill zoom">
+          <button id="zin" aria-label="Наблизити"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+          <button id="zout" aria-label="Віддалити"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+        </div>
+        <button class="pill home" id="home">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h3m12 0h3M12 3v3m0 12v3"/><circle cx="12" cy="12" r="6"/></svg>
+          Уся Україна
+        </button>
+      </div>
+
+      <div class="fl-tr">
+        <div class="pill basemaps">
+          <button data-bm="osm" aria-pressed="true">OSM</button>
+          <button data-bm="light" aria-pressed="false">Світла</button>
+        </div>
+      </div>
+
+      <div class="fl-bl">
+        <div class="pill legend">
+          <span class="eyebrow">Умовні позначення</span>
+          <ul>
+            <li><svg class="sw2" viewBox="0 0 100 100"><use href="#ic-shahed" width="100" height="100"/></svg>Ударний БпЛА</li>
+            <li><svg class="sw2" viewBox="0 0 100 100"><use href="#ic-x101" width="100" height="100"/></svg>Крилата ракета</li>
+            <li><svg class="sw2" viewBox="0 0 100 100"><use href="#ic-iskander" width="100" height="100"/></svg>Балістика</li>
+            <li><span class="box" style="background:oklch(0.545 0.212 27/.3);border:1px solid oklch(0.545 0.212 27/.6)"></span>Повітряна тривога</li>
+            <li><span class="box" id="lgOcc"></span>Тимчасово окуповано</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="fl-br">
+        <div class="scaleb"><div class="b" id="scBar" style="width:120px"></div><span id="scTxt">100 км</span></div>
+        <span class="attrib">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></span>
+      </div>
+
+      <div class="boot" id="boot"><div>
+        <div class="bars"><i style="--i:0"></i><i style="--i:1"></i><i style="--i:2"></i><i style="--i:3"></i><i style="--i:4"></i></div>
+        <p>Синхронізація з каналом @flightwatch…</p>
+      </div></div>
+    </div>
+
+    <div class="ticker">
+      <span class="bg">Ефір</span>
+      <div class="roll" id="roll"></div>
+      <span class="disc">Дані з відкритих джерел. Не є офіційним оповіщенням.</span>
+    </div>
+  </main>
+</div>
+
+<dialog id="dSupport"><div class="sheet">
+  <button class="x" id="closeSupport" aria-label="Закрити"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  <h2><svg width="21" height="21" viewBox="0 0 24 24" fill="oklch(0.545 0.212 27)"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg> Підтримка проєкту</h2>
+  <p>Мапа Flight Watch працює 24/7, але за нею стоять сервери та щоденна ручна робота операторів. Ваш внесок тримає її в ефірі й дає змогу розвивати сервіс далі.</p>
+  <div class="pay">
+    <div class="k"><code>4874 1000 3151 5474</code><button class="cp" id="copyCard">Копіювати</button></div>
+    <div class="jar">Банка: <a href="https://send.monobank.ua/" target="_blank" rel="noopener">Monobank</a></div>
+  </div>
+</div></dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═════ дані ═════ */
+const UA=[[23.60,51.52],[24.35,51.90],[25.20,51.92],[26.40,51.85],[27.70,51.60],[28.75,51.55],[29.30,51.40],[30.55,51.40],[30.62,51.90],[31.60,52.10],[32.40,52.25],[33.20,52.35],[34.10,51.70],[34.40,51.25],[35.10,51.20],[35.40,50.55],[36.60,50.30],[37.45,50.40],[38.20,50.00],[39.20,49.85],[40.15,49.60],[40.20,49.20],[39.80,48.85],[39.95,48.30],[40.10,48.25],[39.75,47.85],[38.90,47.85],[38.30,47.60],[38.25,47.10],[37.50,47.10],[36.75,46.70],[35.85,46.65],[35.30,46.00],[34.85,46.15],[34.20,46.20],[33.75,46.15],[33.20,46.20],[32.60,46.35],[31.90,46.60],[31.50,46.60],[30.95,46.55],[30.75,46.45],[30.20,45.85],[29.70,45.65],[29.00,45.35],[28.50,45.45],[28.25,45.50],[28.90,45.90],[29.55,46.35],[29.90,46.50],[29.60,47.00],[29.20,47.50],[28.35,48.15],[27.60,48.45],[26.65,48.30],[26.00,48.20],[25.50,47.95],[24.90,47.72],[24.20,47.90],[23.60,48.00],[23.15,48.10],[22.60,48.10],[22.15,48.40],[22.55,49.08],[22.70,49.40],[23.30,50.35],[24.10,50.85]];
+const CRIMEA=[[33.65,46.15],[34.25,46.05],[34.90,45.88],[35.50,45.95],[36.00,45.60],[36.60,45.45],[36.35,45.15],[35.60,45.10],[35.00,44.85],[34.40,44.70],[33.80,44.45],[33.45,44.60],[33.55,45.00],[33.20,45.20],[32.50,45.35],[32.60,45.60],[33.30,45.75],[33.10,46.00]];
+const FRONT=[[37.05,50.30],[37.60,49.85],[37.90,49.10],[38.15,48.90],[38.10,48.60],[37.90,48.35],[37.25,48.28],[37.05,47.95],[36.85,47.85],[36.25,47.70],[35.80,47.58],[35.10,47.50],[34.85,47.40],[33.65,47.05],[32.75,46.65],[32.35,46.42]];
+const OCC=FRONT.concat([[32.60,46.35],[33.20,46.20],[33.75,46.15],[34.20,46.20],[34.85,46.15],[35.30,46.00],[35.85,46.65],[36.75,46.70],[37.50,47.10],[38.25,47.10],[38.30,47.60],[38.90,47.85],[39.75,47.85],[40.10,48.25],[39.95,48.30],[39.80,48.85],[40.20,49.20],[40.15,49.60],[39.20,49.85],[38.20,50.00],[37.45,50.40]]);
+const OBL=[['Волинська',25.30,51.15],['Рівненська',26.40,51.00],['Житомирська',28.60,50.60],['Київська',30.30,50.30],
+ ['Чернігівська',31.80,51.50],['Сумська',34.00,51.00],['Харківська',36.40,49.70],['Луганська',39.00,48.80],
+ ['Донецька',37.60,48.10],['Запорізька',35.40,47.30],['Дніпропетровська',34.50,48.30],['Полтавська',33.70,49.70],
+ ['Черкаська',31.30,49.20],['Кіровоградська',32.30,48.40],['Миколаївська',31.60,47.30],['Херсонська',33.40,46.70],
+ ['Одеська',30.00,46.60],['Вінницька',28.50,49.10],['Хмельницька',27.00,49.50],['Тернопільська',25.60,49.40],
+ ['Львівська',23.80,49.70],['Івано-Франківська',24.70,48.60],['Закарпатська',23.30,48.40],['Чернівецька',26.00,48.30]];
+const CRN='АР Крим';
+const CITY=[['Київ',30.52,50.45],['Харків',36.23,49.99],['Одеса',30.73,46.48],['Дніпро',35.05,48.47],['Львів',24.03,49.84],
+ ['Запоріжжя',35.14,47.84],['Миколаїв',31.99,46.98],['Суми',34.80,50.91],['Чернігів',31.29,51.50],['Полтава',34.55,49.59],
+ ['Вінниця',28.47,49.23],['Житомир',28.66,50.25],['Луцьк',25.34,50.75],['Херсон',32.62,46.64],['Кривий Ріг',33.39,47.91],
+ ['Черкаси',32.06,49.44],['Хмельницький',26.99,49.42],['Краматорськ',37.55,48.74],['Мелітополь',35.37,46.84],
+ ['Кропивницький',32.26,48.51],['Івано-Франківськ',24.71,48.92],['Ужгород',22.30,48.62],['Ізмаїл',28.84,45.35]];
+
+const TYPES=[
+ {id:'shahed',cat:'БПЛА',n:'Ударний БпЛА',ic:'ic-shahed',c:'#2f2f2f',role:'uav',sp:[150,195],alt:[600,2600]},
+ {id:'jetuav',cat:'БПЛА',n:'Реактивний БпЛА',ic:'ic-shahed',c:'#4a4a4a',role:'uav',sp:[430,560],alt:[1500,4200]},
+ {id:'recon',cat:'БПЛА',n:'Розвідувальний БпЛА',ic:'ic-recon',c:'#8d8f84',role:'uav',sp:[110,155],alt:[1200,3200]},
+ {id:'molnia',cat:'БПЛА',n:'БпЛА «Молнія»',ic:'ic-molniya',c:'#b98d4c',role:'uav',sp:[120,165],alt:[200,800]},
+ {id:'fpv',cat:'БПЛА',n:'FPV дрон',ic:'ic-fpv',c:'#2c3134',role:'uav',sp:[80,130],alt:[80,400]},
+ {id:'x101',cat:'РАКЕТИ',n:'Крилата ракета',ic:'ic-x101',c:'#00c9cc',role:'msl',sp:[720,890],alt:[50,300]},
+ {id:'band',cat:'РАКЕТИ',n:'Ракета «Бандероль»',ic:'ic-banderol',c:'#e02020',role:'msl',sp:[520,620],alt:[100,500]},
+ {id:'ball',cat:'РАКЕТИ',n:'Балістика',ic:'ic-iskander',c:'#6b6b3a',role:'msl',sp:[2400,3800],alt:[9000,45000]},
+ {id:'fast',cat:'РАКЕТИ',n:'Швидкісна ціль',ic:'ic-fast',c:'#7a5f9c',role:'msl',sp:[1100,1900],alt:[3000,12000]},
+ {id:'kab',cat:'ІНШЕ',n:'КАБ',ic:'ic-kab',c:'#5d6b48',role:'kab',sp:[600,800],alt:[1500,6000]}];
+const T=Object.fromEntries(TYPES.map(t=>[t.id,t]));
+const ROLE={uav:['БпЛА','#3a3a3a'],msl:['Ракети','#d13a2a'],avia:['Авіація','#3f4956'],kab:['КАБ','#5d6b48']};
+
+/* ═════ проєкція ═════ */
+const TS=256,Z8=8;
+const lon2x=(lo,z)=>(lo+180)/360*TS*2**z;
+const lat2y=(la,z)=>{const s=Math.sin(la*Math.PI/180);return (0.5-Math.log((1+s)/(1-s))/(4*Math.PI))*TS*2**z;};
+const x2lon=(x,z)=>x/(TS*2**z)*360-180;
+const y2lat=(y,z)=>{const n=Math.PI-2*Math.PI*y/(TS*2**z);return 180/Math.PI*Math.atan(0.5*(Math.exp(n)-Math.exp(-n)));};
+const w8=(lo,la)=>[lon2x(lo,Z8),lat2y(la,Z8)];
+
+/* ═════ стан ═════ */
+const DEF={size:1,labels:true,meta:false,trails:true,alarmFill:true,dim:true,sound:false};
+const S={...DEF,off:new Set()};
+const view={lat:48.55,lon:31.4,zoom:6.1};
+const MINZ=5,MAXZ=11;
+let base='osm',tileErr=0,targets=[],alarms=new Map(),levels=new Map(),cells=new Map();
+
+const $=q=>document.querySelector(q),$$=q=>[...document.querySelectorAll(q)];
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const pick=a=>a[(Math.random()*a.length)|0];
+const pad=n=>String(n|0).padStart(2,'0');
+const hhmm=d=>pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
+
+function tileURL(z,x,y){
+  const n=2**z;x=((x%n)+n)%n;
+  if(base==='osm') return 'https://tile.openstreetmap.org/'+z+'/'+x+'/'+y+'.png';
+  const s='abcd'[(x+y)%4];
+  return 'https://'+s+'.basemaps.cartocdn.com/light_all/'+z+'/'+x+'/'+y+(devicePixelRatio>1.4?'@2x':'')+'.png';
+}
+
+/* ═════ рушій мапи ═════ */
+function size(){const e=$('#mapwrap');return [e.clientWidth,e.clientHeight];}
+function paneT(z){const [w,h]=size(),s=2**(view.zoom-z);
+  return 'translate('+w/2+'px,'+h/2+'px) scale('+s+') translate('+(-lon2x(view.lon,z))+'px,'+(-lat2y(view.lat,z))+'px)';}
+function screenOf(lo,la){const [w,h]=size(),z=view.zoom;
+  return [lon2x(lo,z)-lon2x(view.lon,z)+w/2, lat2y(la,z)-lat2y(view.lat,z)+h/2];}
+function latlngAt(px,py){const [w,h]=size(),z=view.zoom;
+  return [y2lat(lat2y(view.lat,z)+py-h/2,z), x2lon(lon2x(view.lon,z)+px-w/2,z)];}
+
+function drawTiles(){
+  const tz=Math.max(MINZ,Math.min(MAXZ,Math.round(view.zoom)));
+  const [w,h]=size(),s=2**(view.zoom-tz);
+  let L=levels.get(tz);
+  if(!L){L={el:document.createElement('div'),tiles:new Map()};
+    L.el.className='lvl';L.el.style.zIndex=tz;$('#levels').appendChild(L.el);levels.set(tz,L);}
+  const cx=lon2x(view.lon,tz),cy=lat2y(view.lat,tz);
+  const hw=(w/2)/s+TS,hh=(h/2)/s+TS;
+  const x0=Math.floor((cx-hw)/TS),x1=Math.floor((cx+hw)/TS);
+  const y0=Math.max(0,Math.floor((cy-hh)/TS)),y1=Math.min(2**tz-1,Math.floor((cy+hh)/TS));
+  const need=new Set();
+  for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++){
+    const k=x+'_'+y;need.add(k);
+    if(L.tiles.has(k))continue;
+    const img=new Image();img.decoding='async';img.alt='';
+    img.style.left=(x*TS)+'px';img.style.top=(y*TS)+'px';
+    img.onload=()=>img.classList.add('ok');
+    img.onerror=()=>{if(base==='osm'&&++tileErr>6){setBase('light');toast('Тайли OSM недоступні, увімкнув світлу мапу');}};
+    img.src=tileURL(tz,x,y);
+    L.el.appendChild(img);L.tiles.set(k,img);
+  }
+  for(const [k,img] of L.tiles) if(!need.has(k)){img.remove();L.tiles.delete(k);}
+  for(const [z,lv] of levels){
+    lv.el.style.transform=paneT(z);
+    if(z!==tz){lv.stale=(lv.stale||0)+1;if(lv.stale>2){lv.el.remove();levels.delete(z);}}
+    else lv.stale=0;
+  }
+  $('#vg').setAttribute('transform','translate('+w/2+','+h/2+') scale('+2**(view.zoom-Z8)+') translate('+(-lon2x(view.lon,Z8))+','+(-lat2y(view.lat,Z8))+')');
+  scaleBar();
+}
+function scaleBar(){
+  const mpp=156543.03392*Math.cos(view.lat*Math.PI/180)/2**view.zoom;
+  const target=130*mpp,steps=[1,2,5,10,20,50,100,200,500,1000];
+  const km=steps.find(v=>v*1000>=target*0.55)||1000;
+  $('#scBar').style.width=Math.round(km*1000/mpp)+'px';
+  $('#scTxt').textContent=km+' км';
+}
+
+/* ═════ векторний шар ═════ */
+function poly(pts){return pts.map((p,i)=>(i?'L':'M')+w8(p[0],p[1]).map(v=>v.toFixed(1)).join(' ')).join('')+'Z';}
+function line(pts){return pts.map((p,i)=>(i?'L':'M')+w8(p[0],p[1]).map(v=>v.toFixed(1)).join(' ')).join('');}
+function clipHalf(pl,A,B){
+  const mx=(A[0]+B[0])/2,my=(A[1]+B[1])/2,nx=B[0]-A[0],ny=B[1]-A[1];
+  const sd=p=>(p[0]-mx)*nx+(p[1]-my)*ny,out=[];
+  for(let i=0;i<pl.length;i++){
+    const P=pl[i],Q=pl[(i+1)%pl.length],sp=sd(P),sq=sd(Q);
+    if(sp<=0)out.push(P);
+    if((sp<0&&sq>0)||(sp>0&&sq<0)){const t=sp/(sp-sq);out.push([P[0]+(Q[0]-P[0])*t,P[1]+(Q[1]-P[1])*t]);}
+  }
+  return out;
+}
+function buildVector(){
+  const ua8=UA.map(p=>w8(p[0],p[1])),cr8=CRIMEA.map(p=>w8(p[0],p[1]));
+  const seeds=OBL.map(o=>({n:o[0],p:w8(o[1],o[2])}));
+  for(const s of seeds){
+    let pl=ua8;
+    for(const o of seeds) if(o!==s&&pl.length) pl=clipHalf(pl,s.p,o.p);
+    cells.set(s.n,pl);
+  }
+  cells.set(CRN,cr8);
+  const dOf=n=>{const c=cells.get(n);return c&&c.length?'M'+c.map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join('L')+'Z':'M0 0';};
+
+  let g='<defs><pattern id="occp" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45) scale(0.06)">';
+  g+='<rect width="7" height="7" fill="rgba(214,88,66,0.16)"/><line x1="0" y1="0" x2="0" y2="7" stroke="rgba(178,44,28,0.55)" stroke-width="2.4"/></pattern></defs>';
+  g+='<path id="dimmer" fill="rgba(38,44,58,0.40)" fill-rule="evenodd" d="M0 0H65536V65536H0Z'+poly(UA)+poly(CRIMEA)+'"/>';
+  g+='<g id="alarmG">'+[...OBL.map(o=>o[0]),CRN].map(n=>
+      '<path class="ac" data-o="'+n+'" d="'+dOf(n)+'" fill="rgba(206,44,28,0.24)" stroke="rgba(160,30,18,0.45)" stroke-width="1" vector-effect="non-scaling-stroke" opacity="0" style="transition:opacity .6s cubic-bezier(0.16,1,0.3,1)"/>').join('')+'</g>';
+  g+='<path d="'+poly(OCC)+poly(CRIMEA)+'" fill="url(#occp)" stroke="rgba(160,30,18,0.5)" stroke-width="1" vector-effect="non-scaling-stroke"/>';
+  g+='<path class="front-line" d="'+line(FRONT)+'" fill="none" stroke="rgba(140,24,14,0.85)" stroke-width="2.4" stroke-dasharray="7 5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>';
+  g+='<path d="'+poly(UA)+poly(CRIMEA)+'" fill="none" stroke="rgba(40,36,32,0.8)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>';
+  g+='<g id="trails"></g>';
+  $('#vg').innerHTML=g;
+  $('#lgOcc').style.background='repeating-linear-gradient(45deg,rgba(178,44,28,.55) 0 2px,rgba(214,88,66,.15) 2px 5px)';
+}
+function paintAlarms(){
+  $$('#alarmG .ac').forEach(p=>p.setAttribute('opacity',(S.alarmFill&&alarms.has(p.dataset.o))?'1':'0'));
+  const d=$('#dimmer'); if(d) d.style.display=S.dim?'':'none';
+}
+
+/* ═════ цілі ═════ */
+function near(lo,la,arr){let b=arr[0],d=1e9;for(const c of arr){const k=(c[1]-lo)**2*0.44+(c[2]-la)**2;if(k<d){d=k;b=c;}}return b;}
+function oblastAt(lo,la){if(la<46.3&&lo>32.4&&lo<36.7)return CRN;return near(lo,la,OBL)[0];}
+const DIRS=['північний','північно-східний','східний','південно-східний','південний','південно-західний','західний','північно-західний'];
+const dirName=h=>DIRS[Math.round((((h%360)+360)%360)/45)%8];
+
+function spawn(quiet){
+  const t=pick(TYPES);let lo,la,hd,r=Math.random();
+  if(t.role==='avia'||t.id==='kab'||t.id==='fpv'||t.id==='molnia'){
+    const f=FRONT[(Math.random()*FRONT.length)|0];
+    lo=f[0]+rnd(0.3,1.5);la=f[1]+rnd(-0.5,0.5);hd=rnd(235,305);
+  }else if(r<0.42){lo=rnd(30.4,39.6);la=52.5;hd=rnd(150,215);}
+  else if(r<0.76){lo=40.4;la=rnd(47.8,51.6);hd=rnd(230,292);}
+  else{lo=rnd(30.4,36.6);la=44.3;hd=rnd(340,395)%360;}
+  const tg={t,lo,la,hd,sp:rnd(t.sp[0],t.sp[1]),alt:Math.round(rnd(t.alt[0],t.alt[1])/50)*50,
+    born:performance.now(),trail:[w8(lo,la)],lastTrail:0,el:null};
+  targets.push(tg);
+  if(!quiet){
+    const dst=near(lo+Math.sin(hd*Math.PI/180)*2.4,la+Math.cos(hd*Math.PI/180)*2.4,CITY);
+    log(t,'<b>'+t.n+'</b> · '+oblastAt(lo,la)+', курс '+dirName(hd),'орієнтовно на '+dst[0]);
+    if(S.sound&&t.role==='msl')beep(t.id==='ball'?520:380);
+  }
+}
+function mkEl(tg){
+  const d=document.createElement('div');
+  d.className='tgt fresh';d.style.setProperty('--tc',tg.t.c);
+  d.innerHTML='<svg class="ico" viewBox="0 0 100 100"><use href="#'+tg.t.ic+'" width="100" height="100"/></svg>'+
+              '<div class="tag"><span>'+tg.t.n+'</span><em></em></div>';
+  $('#marks').appendChild(d);
+  tg.el=d;tg.ico=d.querySelector('.ico');tg.tag=d.querySelector('.tag');tg.em=d.querySelector('em');
+  setTimeout(()=>d.classList.remove('fresh'),650);
+}
+function renderTargets(){
+  let n=0,by={uav:0,msl:0,avia:0,kab:0};
+  for(const tg of targets){
+    if(!tg.el)mkEl(tg);
+    if(S.off.has(tg.t.id)){tg.el.style.display='none';continue;}
+    tg.el.style.display='';n++;by[tg.t.role]++;
+    const [x,y]=screenOf(tg.lo,tg.la);
+    tg.el.style.transform='translate3d('+x.toFixed(1)+'px,'+y.toFixed(1)+'px,0)';
+    const px=Math.round(30*S.size);
+    tg.ico.style.width=px+'px';tg.ico.style.height=px+'px';
+    tg.ico.style.transform='translate(-50%,-50%) rotate('+tg.hd.toFixed(1)+'deg)';
+    tg.tag.style.display=S.labels?'':'none';
+    tg.tag.style.left=(px*0.55+5)+'px';
+    tg.tag.style.top='-11px';
+    if(S.meta){tg.em.style.display='';tg.em.textContent=Math.round(tg.sp)+' км/год · '+tg.alt.toLocaleString('uk-UA')+' м · '+Math.round(tg.hd)+'°';}
+    else tg.em.style.display='none';
+  }
+  $('#totN').textContent=n;
+  $('#chips').innerHTML=Object.keys(ROLE).map(r=>
+    '<span class="chip"><i style="background:'+ROLE[r][1]+'"></i>'+ROLE[r][0]+' <b>'+by[r]+'</b></span>').join('');
+}
+function renderTrails(){
+  const g=$('#trails');if(!g)return;
+  if(!S.trails){g.innerHTML='';return;}
+  g.innerHTML=targets.filter(t=>!S.off.has(t.t.id)&&t.trail.length>1).map(t=>
+    '<path d="M'+t.trail.map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join('L')+
+    '" fill="none" stroke="'+t.t.c+'" stroke-opacity=".4" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>').join('');
+}
+
+const SPEEDUP=42;let last=performance.now();
+function loop(now){
+  const dt=Math.min(now-last,150);last=now;
+  const hrs=dt/3600000*SPEEDUP;
+  for(let i=targets.length-1;i>=0;i--){
+    const tg=targets[i],r=tg.hd*Math.PI/180;
+    tg.la+=Math.cos(r)*tg.sp*hrs/111;
+    tg.lo+=Math.sin(r)*tg.sp*hrs/(111*Math.cos(tg.la*Math.PI/180));
+    tg.hd+=Math.sin(now/2600+i)*0.028;
+    if(now-tg.lastTrail>1400){tg.lastTrail=now;tg.trail.push(w8(tg.lo,tg.la));if(tg.trail.length>14)tg.trail.shift();}
+    if(tg.lo<21||tg.lo>41.4||tg.la<43.4||tg.la>53.2||now-tg.born>210000){
+      if(tg.el)tg.el.remove();targets.splice(i,1);
+      if(Math.random()<0.5)log(tg.t,'<b>Ціль збита</b> · '+oblastAt(tg.lo,tg.la),tg.t.n+', супровід завершено','down');
+    }
+  }
+  renderTargets();
+  requestAnimationFrame(loop);
+}
+
+/* ═════ стрічка ═════ */
+function log(type,html,sub,kind){
+  const li=document.createElement('li');li.dataset.k=kind||'move';
+  const ico=type?'<svg class="ic" viewBox="0 0 100 100"><use href="#'+type.ic+'" width="100" height="100"/></svg>'
+   :'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="'+(kind==='alarm'?'rgb(190,40,26)':'currentColor')+'" stroke-width="2.4" stroke-linecap="round"><path d="M12 3a6 6 0 0 0-6 6v4l-2 3h16l-2-3V9a6 6 0 0 0-6-6ZM10 20h4"/></svg>';
+  li.innerHTML='<time>'+hhmm(new Date())+'</time><div><div class="txt">'+ico+'<span>'+html+'</span></div>'+(sub?'<div class="sub">'+sub+'</div>':'')+'</div>';
+  const f=$('#feed'),em=f.querySelector('.empty');if(em)em.remove();
+  f.prepend(li);
+  while(f.children.length>45)f.lastElementChild.remove();
+  $('#roll').innerHTML='<span>'+hhmm(new Date())+' &nbsp;·&nbsp; '+html.replace(/<[^>]+>/g,'')+(sub?' · '+sub:'')+'</span>';
+}
+
+/* ═════ тривоги ═════ */
+const dur=t=>{const s=(Date.now()-t)/1000|0;return pad(s/60)+':'+pad(s%60);};
+function renderAlarms(){
+  const on=[...alarms.entries()].sort((a,b)=>a[1]-b[1]);
+  $('#aBig').textContent=on.length;
+  $('#tabN').textContent=on.length;
+  document.querySelector('.tab[data-pane="alarms"]').dataset.hot=on.length>0;
+  $('#aSub').textContent=on.length===1?'область під тривогою':'областей під тривогою';
+  $('#aLong').textContent=on.length?'найдовша '+dur(on[0][1]):'';
+  $('#aList').innerHTML=on.length?on.map(([n,t])=>
+    '<li class="on" data-go="'+n+'"><span class="fl"></span><span class="nm">'+n+'</span><span class="st" data-s="'+t+'">'+dur(t)+'</span></li>').join('')
+    :'<li style="padding-left:0;color:var(--ink-3);font-size:.875rem">Тривог немає. Тихо по всій країні.</li>';
+  $('#cList').innerHTML=[...OBL.map(o=>o[0]),CRN].filter(n=>!alarms.has(n)).map(n=>
+    '<li class="calm" data-go="'+n+'"><span class="fl"></span><span class="nm">'+n+'</span><span class="st">відбій</span></li>').join('');
+  paintAlarms();
+}
+function tickAlarms(){
+  $$('#aList .st').forEach(e=>e.textContent=dur(+e.dataset.s));
+  const on=[...alarms.values()].sort((a,b)=>a-b);
+  $('#aLong').textContent=on.length?'найдовша '+dur(on[0]):'';
+}
+function shuffleAlarms(){
+  const all=[...OBL.map(o=>o[0]),CRN];
+  if(Math.random()<0.56){
+    const free=all.filter(n=>!alarms.has(n));
+    if(free.length){const n=pick(free);alarms.set(n,Date.now());
+      log(null,'<b>Повітряна тривога</b> · '+n,'прямуйте в укриття','alarm');}
+  }else if(alarms.size>2){
+    const n=pick([...alarms.keys()]);alarms.delete(n);
+    log(null,'<b>Відбій тривоги</b> · '+n,'');
+  }
+  renderAlarms();
+}
+
+/* ═════ звук ═════ */
+let ac;
+function beep(f){
+  try{
+    ac=ac||new (window.AudioContext||window.webkitAudioContext)();
+    const o=ac.createOscillator(),g=ac.createGain();
+    o.type='sine';o.frequency.value=f;
+    g.gain.setValueAtTime(0.0001,ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.07,ac.currentTime+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+0.35);
+    o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+0.36);
+  }catch(e){}
+}
+
+/* ═════ UI ═════ */
+function buildTypes(){
+  let html='',cat='';
+  for(const t of TYPES){
+    if(t.cat!==cat){cat=t.cat;html+='<li class="cat eyebrow">'+cat+'</li>';}
+    html+='<li><button class="chk" role="checkbox" aria-checked="true" data-t="'+t.id+'">'+
+      '<svg class="gl" viewBox="0 0 100 100"><use href="#'+t.ic+'" width="100" height="100"/></svg>'+
+      '<span class="nm">'+t.n+'</span><span class="box"></span></button></li>';
+  }
+  $('#typeList').innerHTML=html;
+}
+function sync(){
+  $$('.sw').forEach(b=>b.setAttribute('aria-checked',String(S[b.dataset.p])));
+  $$('.chk').forEach(b=>b.setAttribute('aria-checked',String(!S.off.has(b.dataset.t))));
+  $('#rSize').value=S.size;
+  $('#vSize').textContent=S.size.toFixed(1).replace('.',',')+'×';
+  renderTargets();renderTrails();paintAlarms();
+}
+let toastT;
+function toast(m){const e=$('#toast');e.textContent=m;e.classList.add('on');
+  clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('on'),2800);}
+function setBase(b){
+  if(base===b)return;base=b;tileErr=0;
+  for(const [,L] of levels)L.el.remove();
+  levels.clear();
+  $$('.basemaps button').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.bm===b)));
+  drawTiles();
+}
+function flyTo(lat,lon,zoom){
+  const s={...view},e={lat,lon,zoom:zoom==null?view.zoom:zoom},t0=performance.now(),D=620;
+  (function step(t){
+    const k=Math.min(1,(t-t0)/D),p=1-Math.pow(1-k,4);
+    view.lat=s.lat+(e.lat-s.lat)*p;view.lon=s.lon+(e.lon-s.lon)*p;view.zoom=s.zoom+(e.zoom-s.zoom)*p;
+    drawTiles();renderTargets();
+    if(k<1)requestAnimationFrame(step);
+  })(t0);
+}
+function zoomAt(dz,px,py){
+  const [w,h]=size();
+  if(px==null){px=w/2;py=h/2;}
+  const [la,lo]=latlngAt(px,py);
+  const nz=Math.max(MINZ,Math.min(MAXZ,view.zoom+dz));
+  if(nz===view.zoom)return;
+  view.zoom=nz;
+  view.lon=x2lon(lon2x(lo,nz)-(px-w/2),nz);
+  view.lat=y2lat(lat2y(la,nz)-(py-h/2),nz);
+  drawTiles();renderTargets();
+}
+
+(function(){
+  const el=$('#mapwrap');const pts=new Map();let lastD=0;
+  el.addEventListener('pointerdown',e=>{
+    if(e.target.closest('.pill'))return;
+    el.setPointerCapture(e.pointerId);pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    el.classList.add('drag');
+  });
+  el.addEventListener('pointermove',e=>{
+    if(!pts.has(e.pointerId))return;
+    const p=pts.get(e.pointerId),dx=e.clientX-p.x,dy=e.clientY-p.y;
+    p.x=e.clientX;p.y=e.clientY;
+    if(pts.size===1){
+      const z=view.zoom;
+      view.lon=x2lon(lon2x(view.lon,z)-dx,z);
+      view.lat=y2lat(Math.max(1,lat2y(view.lat,z)-dy),z);
+      drawTiles();renderTargets();
+    }else if(pts.size===2){
+      const v=[...pts.values()],d=Math.hypot(v[0].x-v[1].x,v[0].y-v[1].y);
+      if(lastD){const r=el.getBoundingClientRect();
+        zoomAt(Math.log2(d/lastD),(v[0].x+v[1].x)/2-r.left,(v[0].y+v[1].y)/2-r.top);}
+      lastD=d;
+    }
+  });
+  const up=e=>{pts.delete(e.pointerId);if(pts.size<2)lastD=0;if(!pts.size)el.classList.remove('drag');};
+  el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+  el.addEventListener('wheel',e=>{e.preventDefault();const r=el.getBoundingClientRect();
+    zoomAt(-e.deltaY*(e.deltaMode===1?0.05:0.0022),e.clientX-r.left,e.clientY-r.top);},{passive:false});
+  el.addEventListener('dblclick',e=>{const r=el.getBoundingClientRect();zoomAt(1,e.clientX-r.left,e.clientY-r.top);});
+})();
+
+document.addEventListener('click',e=>{
+  const tab=e.target.closest('.tab');
+  if(tab){$$('.tab').forEach(t=>t.setAttribute('aria-selected',String(t===tab)));
+    $$('.pane').forEach(p=>p.toggleAttribute('data-on',p.dataset.pane===tab.dataset.pane));
+    $('#rail').classList.add('tall');return;}
+  const sw=e.target.closest('.sw');
+  if(sw){S[sw.dataset.p]=!S[sw.dataset.p];sync();if(sw.dataset.p==='sound'&&S.sound)beep(440);return;}
+  const chk=e.target.closest('.chk');
+  if(chk){const id=chk.dataset.t;S.off.has(id)?S.off.delete(id):S.off.add(id);sync();return;}
+  if(e.target.closest('#reset')){Object.assign(S,DEF);S.off=new Set();sync();toast('Налаштування скинуто');return;}
+  const bm=e.target.closest('.basemaps button');if(bm){setBase(bm.dataset.bm);return;}
+  if(e.target.closest('#zin')){zoomAt(1);return;}
+  if(e.target.closest('#zout')){zoomAt(-1);return;}
+  if(e.target.closest('#home')){flyTo(48.55,31.4,6.1);return;}
+  if(e.target.closest('#handle')){$('#rail').classList.toggle('tall');return;}
+  if(e.target.closest('#openSupport')){$('#dSupport').showModal();return;}
+  if(e.target.closest('#closeSupport')){$('#dSupport').close();return;}
+  const cp=e.target.closest('#copyCard');
+  if(cp){if(navigator.clipboard)navigator.clipboard.writeText('4874100031515474');
+    cp.textContent='Скопійовано';setTimeout(()=>cp.textContent='Копіювати',1800);return;}
+  const go=e.target.closest('[data-go]');
+  if(go){const n=go.dataset.go,o=n===CRN?[CRN,34.2,45.3]:OBL.find(x=>x[0]===n);
+    if(o)flyTo(o[2],o[1],Math.max(view.zoom,7.4));}
+});
+$('#dSupport').addEventListener('click',e=>{if(e.target.id==='dSupport')$('#dSupport').close();});
+$('#rSize').addEventListener('input',e=>{S.size=+e.target.value;
+  $('#vSize').textContent=S.size.toFixed(1).replace('.',',')+'×';renderTargets();});
+
+/* ═════ старт ═════ */
+buildTypes();buildVector();drawTiles();sync();
+['Чернігівська','Сумська','Харківська','Полтавська','Київська','Донецька','Запорізька','Дніпропетровська']
+  .forEach(n=>alarms.set(n,Date.now()-rnd(150,3600)*1000));
+renderAlarms();
+$('#feed').innerHTML='<li class="empty">Очікування даних з каналу…</li>';
+for(let i=0;i<11;i++)spawn(true);
+[['shahed','Чернігівська, курс південний','орієнтовно на Київ'],
+ ['x101','Полтавська, курс західний','орієнтовно на Кременчук'],
+ ['ball','Харківська, пуск з півночі','швидкісна ціль'],
+ ['ball','Донецька, балістична ціль','швидкісна ціль']]
+ .forEach((a,i)=>setTimeout(()=>log(T[a[0]],'<b>'+T[a[0]].n+'</b> · '+a[1],a[2]),i*60));
+
+new ResizeObserver(()=>{drawTiles();renderTargets();}).observe($('#mapwrap'));
+setInterval(()=>{$('#clock').textContent=hhmm(new Date());tickAlarms();},1000);
+setInterval(()=>{if(targets.length<17)spawn();},5200);
+setInterval(shuffleAlarms,12000);
+setInterval(renderTrails,1500);
+requestAnimationFrame(loop);
+setTimeout(()=>$('#boot').classList.add('gone'),1200);
+</script>
+</body>
+</html>

@@ -1,12 +1,23 @@
 const SPRITE_URL = '../assets/icons.svg';
 async function loadIconSprite(){const host=document.querySelector('#icon-sprite');if(!host)return;try{host.innerHTML=await(await fetch(SPRITE_URL)).text()}catch(e){console.warn('SVG sprite failed to load',e)}}
 
-(async()=>{await loadIconSprite();
+(async()=>{
+await loadIconSprite();
+
+/* ═════ URLs (до loadMapData!) ═════ */
+const ADM2_URL = '../data/ukraine-adm2-simplified.geojson';
+const ADM0_URL = 'https://raw.githubusercontent.com/wmgeolab/geoBoundaries/main/releaseData/gbOpen/UKR/ADM0/geoBoundaries-UKR-ADM0_simplified.geojson';
+const ADM1_URL = 'https://raw.githubusercontent.com/wmgeolab/geoBoundaries/main/releaseData/gbOpen/UKR/ADM1/geoBoundaries-UKR-ADM1_simplified.geojson';
+const DEEPSTATE_URL=(()=>{
+  const d=new Date();
+  return 'https://raw.githubusercontent.com/cyterat/deepstate-map-data/main/data/deepstatemap_data_'+
+    d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+'.geojson';
+})();
 
 /* ═════ дані ═════ */
 const UA=[[23.60,51.52],[24.35,51.90],[25.20,51.92],[26.40,51.85],[27.70,51.60],[28.75,51.55],[29.30,51.40],[30.55,51.40],[30.62,51.90],[31.60,52.10],[32.40,52.25],[33.20,52.35],[34.10,51.70],[34.40,51.25],[35.10,51.20],[35.40,50.55],[36.60,50.30],[37.45,50.40],[38.20,50.00],[39.20,49.85],[40.15,49.60],[40.20,49.20],[39.80,48.85],[39.95,48.30],[40.10,48.25],[39.75,47.85],[38.90,47.85],[38.30,47.60],[38.25,47.10],[37.50,47.10],[36.75,46.70],[35.85,46.65],[35.30,46.00],[34.85,46.15],[34.20,46.20],[33.75,46.15],[33.20,46.20],[32.60,46.35],[31.90,46.60],[31.50,46.60],[30.95,46.55],[30.75,46.45],[30.20,45.85],[29.70,45.65],[29.00,45.35],[28.50,45.45],[28.25,45.50],[28.90,45.90],[29.55,46.35],[29.90,46.50],[29.60,47.00],[29.20,47.50],[28.35,48.15],[27.60,48.45],[26.65,48.30],[26.00,48.20],[25.50,47.95],[24.90,47.72],[24.20,47.90],[23.60,48.00],[23.15,48.10],[22.60,48.10],[22.15,48.40],[22.55,49.08],[22.70,49.40],[23.30,50.35],[24.10,50.85]];
 const CRIMEA=[[33.65,46.15],[34.25,46.05],[34.90,45.88],[35.50,45.95],[36.00,45.60],[36.60,45.45],[36.35,45.15],[35.60,45.10],[35.00,44.85],[34.40,44.70],[33.80,44.45],[33.45,44.60],[33.55,45.00],[33.20,45.20],[32.50,45.35],[32.60,45.60],[33.30,45.75],[33.10,46.00]];
-const FRONT=[[37.05,50.30],[37.60,49.85],[37.90,49.10],[38.15,48.90],[38.10,48.60],[37.90,48.35],[37.25,48.28],[37.05,47.95],[36.85,47.85],[36.25,47.70],[35.80,47.58],[35.10,47.50],[34.85,47.40],[33.65,47.05],[32.75,46.65],[32.35,46.42]];
+const FRONT=[[37.76,50.28],[37.72,49.98],[37.82,49.72],[37.75,49.50],[37.96,49.20],[38.10,48.98],[38.04,48.78],[37.86,48.62],[37.98,48.48],[37.72,48.36],[37.40,48.31],[37.25,48.18],[37.18,47.99],[36.93,47.87],[36.69,47.78],[36.38,47.73],[36.16,47.66],[35.84,47.58],[35.55,47.55],[35.23,47.49],[34.94,47.42],[34.63,47.31],[34.32,47.20],[33.95,47.10],[33.58,46.94],[33.24,46.78],[32.90,46.60],[32.50,46.43]];
 const OCC=FRONT.concat([[32.60,46.35],[33.20,46.20],[33.75,46.15],[34.20,46.20],[34.85,46.15],[35.30,46.00],[35.85,46.65],[36.75,46.70],[37.50,47.10],[38.25,47.10],[38.30,47.60],[38.90,47.85],[39.75,47.85],[40.10,48.25],[39.95,48.30],[39.80,48.85],[40.20,49.20],[40.15,49.60],[39.20,49.85],[38.20,50.00],[37.45,50.40]]);
 const OBL=[['Волинська',25.30,51.15],['Рівненська',26.40,51.00],['Житомирська',28.60,50.60],['Київська',30.30,50.30],
  ['Чернігівська',31.80,51.50],['Сумська',34.00,51.00],['Харківська',36.40,49.70],['Луганська',39.00,48.80],
@@ -30,10 +41,11 @@ const TYPES=[
  {id:'x101',cat:'РАКЕТИ',n:'Крилата ракета',ic:'ic-x101',c:'#00c9cc',role:'msl',sp:[720,890],alt:[50,300]},
  {id:'band',cat:'РАКЕТИ',n:'Ракета «Бандероль»',ic:'ic-banderol',c:'#e02020',role:'msl',sp:[520,620],alt:[100,500]},
  {id:'ball',cat:'РАКЕТИ',n:'Балістика',ic:'ic-iskander',c:'#6b6b3a',role:'msl',sp:[2400,3800],alt:[9000,45000]},
- {id:'fast',cat:'РАКЕТИ',n:'Швидкісна ціль',ic:'ic-fast',c:'#7a5f9c',role:'msl',sp:[1100,1900],alt:[3000,12000]},
- {id:'kab',cat:'ІНШЕ',n:'КАБ',ic:'ic-kab',c:'#5d6b48',role:'kab',sp:[600,800],alt:[1500,6000]}];
+ {id:'kab',cat:'ІНШЕ',n:'КАБ',ic:'ic-kab2',c:'#5d6b48',role:'kab',sp:[600,800],alt:[1500,6000]}];
 const T=Object.fromEntries(TYPES.map(t=>[t.id,t]));
 const ROLE={uav:['БпЛА','#3a3a3a'],msl:['Ракети','#d13a2a'],avia:['Авіація','#3f4956'],kab:['КАБ','#5d6b48']};
+let adm2=[], alarmNames=[...OBL.map(o=>o[0]),CRN], frontRings=[FRONT], occRings=[OCC,CRIMEA], mapDataReady=false;
+let uaBorderPath='', adm1=[];
 
 /* ═════ проєкція ═════ */
 const TS=256,Z8=8;
@@ -44,7 +56,7 @@ const y2lat=(y,z)=>{const n=Math.PI-2*Math.PI*y/(TS*2**z);return 180/Math.PI*Mat
 const w8=(lo,la)=>[lon2x(lo,Z8),lat2y(la,Z8)];
 
 /* ═════ стан ═════ */
-const DEF={size:1,labels:true,meta:false,trails:true,alarmFill:true,dim:true,sound:false};
+const DEF={size:1,labels:true,meta:false,trails:true,alarmFill:true,frontLine:true,dim:true,sound:false};
 const S={...DEF,off:new Set()};
 const view={lat:48.55,lon:31.4,zoom:6.1};
 const MINZ=5,MAXZ=11;
@@ -111,8 +123,54 @@ function scaleBar(){
 }
 
 /* ═════ векторний шар ═════ */
+function esc(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 function poly(pts){return pts.map((p,i)=>(i?'L':'M')+w8(p[0],p[1]).map(v=>v.toFixed(1)).join(' ')).join('')+'Z';}
 function line(pts){return pts.map((p,i)=>(i?'L':'M')+w8(p[0],p[1]).map(v=>v.toFixed(1)).join(' ')).join('');}
+function ringPath(r){return r.map((p,i)=>(i?'L':'M')+w8(p[0],p[1]).map(v=>v.toFixed(1)).join(' ')).join('')+'Z';}
+function geomRings(g){if(!g)return[];if(g.type==='Polygon')return g.coordinates;if(g.type==='MultiPolygon')return g.coordinates.flatMap(p=>p);return[];}
+function geomPath(g){return geomRings(g).map(ringPath).join('')||'M0 0';}
+function center(g){const pts=geomRings(g).flat();if(!pts.length)return[31,49];let minx=99,maxx=-99,miny=99,maxy=-99;for(const [x,y]of pts){minx=Math.min(minx,x);maxx=Math.max(maxx,x);miny=Math.min(miny,y);maxy=Math.max(maxy,y)}return[(minx+maxx)/2,(miny+maxy)/2];}
+function insideRing(lo,la,r){let inn=false;for(let i=0,j=r.length-1;i<r.length;j=i++){const a=r[i],b=r[j];if(((a[1]>la)!==(b[1]>la))&&(lo<(b[0]-a[0])*(la-a[1])/(b[1]-a[1])+a[0]))inn=!inn;}return inn;}
+function insideGeom(lo,la,g){const rings=geomRings(g);return rings.some(r=>insideRing(lo,la,r));}
+async function getJSON(url){const r=await fetch(url);if(!r.ok)throw Error(url);return r.json();}
+
+/* ═════ loadMapData: ADM2 + DeepState (outer ring only) + ADM1 + ADM0 ═════ */
+async function loadMapData(){
+  try{
+    const yesterday=new Date(Date.now()-86400000);
+    const dsFallback='https://raw.githubusercontent.com/cyterat/deepstate-map-data/main/data/deepstatemap_data_'+
+      yesterday.getFullYear()+String(yesterday.getMonth()+1).padStart(2,'0')+String(yesterday.getDate()).padStart(2,'0')+'.geojson';
+    const [ra,rd,rb1,rb0]=await Promise.all([
+      getJSON(ADM2_URL).catch(()=>null),
+      getJSON(DEEPSTATE_URL).catch(()=>getJSON(dsFallback).catch(()=>null)),
+      getJSON(ADM1_URL).catch(()=>null),
+      getJSON(ADM0_URL).catch(()=>null)
+    ]);
+    /* райони для тривог */
+    if(ra){
+      adm2=(ra.features||[]).map((f,i)=>{
+        const c=center(f.geometry);
+        return{name:f.properties?.shapeName||f.properties?.name||('Район '+(i+1)),lo:c[0],la:c[1],g:f.geometry,d:geomPath(f.geometry)};
+      });
+      alarmNames=adm2.map(x=>x.name);
+    }
+    /* DeepState — ТІЛЬКИ outer ring кожного полігону (прибираємо "зелені лінії" — дірки всередині) */
+    if(rd){
+      const ds=rd.features?.[0]?.geometry;
+      if(ds){
+        if(ds.type==='MultiPolygon') occRings=ds.coordinates.map(polygon=>polygon[0]);
+        else if(ds.type==='Polygon') occRings=[ds.coordinates[0]];
+        frontRings=occRings.filter(r=>r.some(([lo,la])=>lo>32&&lo<40.5&&la>46.1&&la<51.4));
+      }
+    }
+    /* межі областей */
+    if(rb1) adm1=(rb1.features||[]).map(f=>({name:f.properties?.shapeName||'',d:geomPath(f.geometry)}));
+    /* точний кордон України */
+    if(rb0){const g=rb0.features?.[0]?.geometry;if(g)uaBorderPath=geomPath(g);}
+    mapDataReady=true;
+  }catch(e){console.warn('map data fallback',e);mapDataReady=true;}
+}
+
 function clipHalf(pl,A,B){
   const mx=(A[0]+B[0])/2,my=(A[1]+B[1])/2,nx=B[0]-A[0],ny=B[1]-A[1];
   const sd=p=>(p[0]-mx)*nx+(p[1]-my)*ny,out=[];
@@ -123,44 +181,57 @@ function clipHalf(pl,A,B){
   }
   return out;
 }
+
 function buildVector(){
   const ua8=UA.map(p=>w8(p[0],p[1])),cr8=CRIMEA.map(p=>w8(p[0],p[1]));
   const seeds=OBL.map(o=>({n:o[0],p:w8(o[1],o[2])}));
-  for(const s of seeds){
-    let pl=ua8;
-    for(const o of seeds) if(o!==s&&pl.length) pl=clipHalf(pl,s.p,o.p);
-    cells.set(s.n,pl);
-  }
+  for(const s of seeds){let pl=ua8;for(const o of seeds) if(o!==s&&pl.length) pl=clipHalf(pl,s.p,o.p);cells.set(s.n,pl);}
   cells.set(CRN,cr8);
   const dOf=n=>{const c=cells.get(n);return c&&c.length?'M'+c.map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join('L')+'Z':'M0 0';};
 
+  /* точний кордон або запасний полігон */
+  const borderPath=uaBorderPath||(poly(UA)+poly(CRIMEA));
+
   let g='<defs><pattern id="occp" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45) scale(0.06)">';
   g+='<rect width="7" height="7" fill="rgba(214,88,66,0.16)"/><line x1="0" y1="0" x2="0" y2="7" stroke="rgba(178,44,28,0.55)" stroke-width="2.4"/></pattern></defs>';
-  g+='<path id="dimmer" fill="rgba(38,44,58,0.40)" fill-rule="evenodd" d="M0 0H65536V65536H0Z'+poly(UA)+poly(CRIMEA)+'"/>';
-  g+='<g id="alarmG">'+[...OBL.map(o=>o[0]),CRN].map(n=>
-      '<path class="ac" data-o="'+n+'" d="'+dOf(n)+'" fill="rgba(206,44,28,0.24)" stroke="rgba(160,30,18,0.45)" stroke-width="1" vector-effect="non-scaling-stroke" opacity="0" style="transition:opacity .6s cubic-bezier(0.16,1,0.3,1)"/>').join('')+'</g>';
-  g+='<path d="'+poly(OCC)+poly(CRIMEA)+'" fill="url(#occp)" stroke="rgba(160,30,18,0.5)" stroke-width="1" vector-effect="non-scaling-stroke"/>';
-  g+='<path class="front-line" d="'+line(FRONT)+'" fill="none" stroke="rgba(140,24,14,0.85)" stroke-width="2.4" stroke-dasharray="7 5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>';
-  g+='<path d="'+poly(UA)+poly(CRIMEA)+'" fill="none" stroke="rgba(40,36,32,0.8)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>';
+  /* затемнення за межами — точний кордон */
+  g+='<path id="dimmer" fill="rgba(38,44,58,0.40)" fill-rule="evenodd" d="M0 0H65536V65536H0Z'+borderPath+'"/>';
+  /* тривоги по районах або Вороноєм */
+  g+='<g id="alarmG">'+(mapDataReady&&adm2.length
+    ?adm2.map(a=>'<path class="ac" data-o="'+esc(a.name)+'" d="'+a.d+'" fill="rgba(206,44,28,0.24)" stroke="rgba(160,30,18,0.45)" stroke-width="1" vector-effect="non-scaling-stroke" opacity="0" style="transition:opacity .6s cubic-bezier(0.16,1,0.3,1)"/>').join('')
+    :[...OBL.map(o=>o[0]),CRN].map(n=>'<path class="ac" data-o="'+n+'" d="'+dOf(n)+'" fill="rgba(206,44,28,0.24)" stroke="rgba(160,30,18,0.45)" stroke-width="1" vector-effect="non-scaling-stroke" opacity="0" style="transition:opacity .6s cubic-bezier(0.16,1,0.3,1)"/>').join('')
+  )+'</g>';
+  /* окупована зона */
+  g+='<g id="occG">'+occRings.map(r=>'<path d="'+ringPath(r)+'" fill="url(#occp)" stroke="rgba(160,30,18,0.5)" stroke-width="1" vector-effect="non-scaling-stroke"/>').join('')+'</g>';
+  /* лінія фронту */
+  g+='<g id="frontG">'+frontRings.map(r=>'<path class="front-line" d="'+line(r)+'" fill="none" stroke="rgba(140,24,14,0.85)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>').join('')+'</g>';
+  /* межі районів — тонкі */
+  if(mapDataReady&&adm2.length)g+='<g id="raionG">'+adm2.map(a=>'<path d="'+a.d+'" fill="none" stroke="rgba(40,36,32,0.18)" stroke-width=".6" vector-effect="non-scaling-stroke"/>').join('')+'</g>';
+  /* межі областей — середні */
+  if(adm1.length)g+='<g id="adm1G">'+adm1.map(a=>'<path d="'+a.d+'" fill="none" stroke="rgba(40,36,32,0.48)" stroke-width="1.2" vector-effect="non-scaling-stroke"/>').join('')+'</g>';
+  /* зовнішній кордон — найчіткіший */
+  g+='<path d="'+borderPath+'" fill="none" stroke="rgba(40,36,32,0.88)" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>';
   g+='<g id="trails"></g>';
   $('#vg').innerHTML=g;
   $('#lgOcc').style.background='repeating-linear-gradient(45deg,rgba(178,44,28,.55) 0 2px,rgba(214,88,66,.15) 2px 5px)';
 }
+
 function paintAlarms(){
   $$('#alarmG .ac').forEach(p=>p.setAttribute('opacity',(S.alarmFill&&alarms.has(p.dataset.o))?'1':'0'));
-  const d=$('#dimmer'); if(d) d.style.display=S.dim?'':'none';
+  $$('#frontG .front-line').forEach(p=>p.style.display=S.frontLine?'':'none');
+  const d=$('#dimmer');if(d)d.style.display=S.dim?'':'none';
 }
 
 /* ═════ цілі ═════ */
 function near(lo,la,arr){let b=arr[0],d=1e9;for(const c of arr){const k=(c[1]-lo)**2*0.44+(c[2]-la)**2;if(k<d){d=k;b=c;}}return b;}
-function oblastAt(lo,la){if(la<46.3&&lo>32.4&&lo<36.7)return CRN;return near(lo,la,OBL)[0];}
+function oblastAt(lo,la){for(const a of adm2)if(insideGeom(lo,la,a.g))return a.name;if(la<46.3&&lo>32.4&&lo<36.7)return CRN;return near(lo,la,OBL)[0];}
 const DIRS=['північний','північно-східний','східний','південно-східний','південний','південно-західний','західний','північно-західний'];
 const dirName=h=>DIRS[Math.round((((h%360)+360)%360)/45)%8];
 
 function spawn(quiet){
   const t=pick(TYPES);let lo,la,hd,r=Math.random();
   if(t.role==='avia'||t.id==='kab'||t.id==='fpv'||t.id==='molnia'){
-    const f=FRONT[(Math.random()*FRONT.length)|0];
+    const f=(frontRings[0]||FRONT)[(Math.random()*(frontRings[0]||FRONT).length)|0];
     lo=f[0]+rnd(0.3,1.5);la=f[1]+rnd(-0.5,0.5);hd=rnd(235,305);
   }else if(r<0.42){lo=rnd(30.4,39.6);la=52.5;hd=rnd(150,215);}
   else if(r<0.76){lo=40.4;la=rnd(47.8,51.6);hd=rnd(230,292);}
@@ -255,7 +326,7 @@ function renderAlarms(){
   $('#aList').innerHTML=on.length?on.map(([n,t])=>
     '<li class="on" data-go="'+n+'"><span class="fl"></span><span class="nm">'+n+'</span><span class="st" data-s="'+t+'">'+dur(t)+'</span></li>').join('')
     :'<li style="padding-left:0;color:var(--ink-3);font-size:.875rem">Тривог немає. Тихо по всій країні.</li>';
-  $('#cList').innerHTML=[...OBL.map(o=>o[0]),CRN].filter(n=>!alarms.has(n)).map(n=>
+  $('#cList').innerHTML=alarmNames.filter(n=>!alarms.has(n)).slice(0,120).map(n=>
     '<li class="calm" data-go="'+n+'"><span class="fl"></span><span class="nm">'+n+'</span><span class="st">відбій</span></li>').join('');
   paintAlarms();
 }
@@ -265,7 +336,7 @@ function tickAlarms(){
   $('#aLong').textContent=on.length?'найдовша '+dur(on[0]):'';
 }
 function shuffleAlarms(){
-  const all=[...OBL.map(o=>o[0]),CRN];
+  const all=alarmNames;
   if(Math.random()<0.56){
     const free=all.filter(n=>!alarms.has(n));
     if(free.length){const n=pick(free);alarms.set(n,Date.now());
@@ -328,6 +399,8 @@ function flyTo(lat,lon,zoom){
     if(k<1)requestAnimationFrame(step);
   })(t0);
 }
+let redrawQueued=false;
+function redrawMap(){if(redrawQueued)return;redrawQueued=true;requestAnimationFrame(()=>{redrawQueued=false;drawTiles();renderTargets();});}
 function zoomAt(dz,px,py){
   const [w,h]=size();
   if(px==null){px=w/2;py=h/2;}
@@ -344,6 +417,7 @@ function zoomAt(dz,px,py){
   const el=$('#mapwrap');const pts=new Map();let lastD=0;
   el.addEventListener('pointerdown',e=>{
     if(e.target.closest('.pill'))return;
+    e.preventDefault();
     el.setPointerCapture(e.pointerId);pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
     el.classList.add('drag');
   });
@@ -355,7 +429,7 @@ function zoomAt(dz,px,py){
       const z=view.zoom;
       view.lon=x2lon(lon2x(view.lon,z)-dx,z);
       view.lat=y2lat(Math.max(1,lat2y(view.lat,z)-dy),z);
-      drawTiles();renderTargets();
+      redrawMap();
     }else if(pts.size===2){
       const v=[...pts.values()],d=Math.hypot(v[0].x-v[1].x,v[0].y-v[1].y);
       if(lastD){const r=el.getBoundingClientRect();
@@ -391,7 +465,7 @@ document.addEventListener('click',e=>{
   if(cp){if(navigator.clipboard)navigator.clipboard.writeText('4874100031515474');
     cp.textContent='Скопійовано';setTimeout(()=>cp.textContent='Копіювати',1800);return;}
   const go=e.target.closest('[data-go]');
-  if(go){const n=go.dataset.go,o=n===CRN?[CRN,34.2,45.3]:OBL.find(x=>x[0]===n);
+  if(go){const n=go.dataset.go,a=adm2.find(x=>x.name===n),o=a?['',a.lo,a.la]:(n===CRN?[CRN,34.2,45.3]:OBL.find(x=>x[0]===n));
     if(o)flyTo(o[2],o[1],Math.max(view.zoom,7.4));}
 });
 $('#dSupport').addEventListener('click',e=>{if(e.target.id==='dSupport')$('#dSupport').close();});
@@ -399,9 +473,9 @@ $('#rSize').addEventListener('input',e=>{S.size=+e.target.value;
   $('#vSize').textContent=S.size.toFixed(1).replace('.',',')+'×';renderTargets();});
 
 /* ═════ старт ═════ */
+await loadMapData();
 buildTypes();buildVector();drawTiles();sync();
-['Чернігівська','Сумська','Харківська','Полтавська','Київська','Донецька','Запорізька','Дніпропетровська']
-  .forEach(n=>alarms.set(n,Date.now()-rnd(150,3600)*1000));
+alarmNames.slice(0,8).forEach(n=>alarms.set(n,Date.now()-rnd(150,3600)*1000));
 renderAlarms();
 $('#feed').innerHTML='<li class="empty">Очікування даних з каналу…</li>';
 for(let i=0;i<11;i++)spawn(true);

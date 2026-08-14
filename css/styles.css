@@ -163,7 +163,7 @@ input[type=range]::-moz-range-thumb{width:12px;height:12px;border:4px solid var(
   color:var(--amber);border:1px solid oklch(0.700 0.150 72/.4);padding:3px 8px;border-radius:5px}
 
 .mapwrap{position:relative;flex:1;min-height:0;overflow:hidden;background:oklch(0.90 0.012 220);
-  touch-action:none;cursor:grab}
+  touch-action:none;overscroll-behavior:none;cursor:grab;user-select:none}
 .mapwrap.drag{cursor:grabbing}
 .lvl{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
 .lvl img{position:absolute;width:256px;height:256px;display:block;opacity:0;

@@ -303,27 +303,27 @@ dialog[open]{animation:lift .38s var(--e-out)}
 @media (prefers-reduced-motion:reduce){
   *,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
-#alarmG .ac{
-  vector-effect:non-scaling-stroke;
-  pointer-events:none;
-  transition:opacity .25s ease, fill .25s ease;
+#alarmG .ac {
+  pointer-events: none;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+  transition:
+    fill-opacity .2s ease,
+    stroke .2s ease,
+    stroke-width .2s ease;
 }
 
-#adm1G .oblast-border{
-  fill:none;
-  stroke:rgba(45,35,30,.75);
-  stroke-width:1.15;
-  vector-effect:non-scaling-stroke;
-  pointer-events:none;
+#adm1G .oblast-border {
+  fill: none;
+  stroke: rgba(45, 35, 30, .78);
+  stroke-width: 1.05;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
 }
 
-#borderG .country-border{
-  fill:none;
-  stroke:rgba(25,25,25,.9);
-  stroke-width:1.6;
-  vector-effect:non-scaling-stroke;
-  pointer-events:none;
-}
+
+
 
 #frontG .front-line{
   fill:none;

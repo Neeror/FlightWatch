@@ -15,6 +15,8 @@ await loadIconSprite();
 const ADM2_URL = './data/ukraine-adm2-simplified.geojson';
 const ADM1_URL = 'https://raw.githubusercontent.com/wmgeolab/geoBoundaries/main/releaseData/gbOpen/UKR/ADM1/geoBoundaries-UKR-ADM1_simplified.geojson';
 const ADM0_URL = 'https://raw.githubusercontent.com/wmgeolab/geoBoundaries/main/releaseData/gbOpen/UKR/ADM0/geoBoundaries-UKR-ADM0_simplified.geojson';
+const MDA1_URL = 'https://raw.githubusercontent.com/wmgeolab/geoBoundaries/main/releaseData/gbOpen/MDA/ADM1/geoBoundaries-MDA-ADM1_simplified.geojson';
+const TRN_RE = /nistrului|st[iî]nga|bender|tighina|transnistria/i;
 
 const DEEPSTATE_URL=(()=>{
   const d=new Date();
@@ -170,11 +172,12 @@ async function loadMapData(){
     const yesterday=new Date(Date.now()-86400000);
     const dsFallback='https://raw.githubusercontent.com/cyterat/deepstate-map-data/main/data/deepstatemap_data_'+
       yesterday.getFullYear()+String(yesterday.getMonth()+1).padStart(2,'0')+String(yesterday.getDate()).padStart(2,'0')+'.geojson';
-    const [ra,rd,rb1,rb0]=await Promise.all([
+      const [ra,rd,rb1,rb0,rm]=await Promise.all([
       getJSON(ADM2_URL).catch(()=>null),
       getJSON(DEEPSTATE_URL).catch(()=>getJSON(dsFallback).catch(()=>null)),
       getJSON(ADM1_URL).catch(()=>null),
-      getJSON(ADM0_URL).catch(()=>null)
+      getJSON(ADM0_URL).catch(()=>null),
+      getJSON(MDA1_URL).catch(()=>null)
     ]);
 
     /* райони — додаємо oblastUa для матчингу з alerts API */
@@ -195,6 +198,15 @@ async function loadMapData(){
         else if(ds.type==='Polygon') occRings=[ds.coordinates[0]];
         frontRings=occRings.filter(r=>r.some(([lo,la])=>lo>32&&lo<40.5&&la>46.1&&la<51.4));
       }
+    }
+     if(rm){
+      const rings=(rm.features||[])
+        .filter(f=>TRN_RE.test(f.properties?.shapeName||''))
+        .flatMap(f=>geomRings(f.geometry));
+      console.log('[map] MDA features:', (rm.features||[]).map(f=>f.properties?.shapeName));
+      if(rings.length) occRings=[...occRings,...rings];
+      else console.warn('[map] Придністров\'я не знайдено:',(rm.features||[]).map(f=>f.properties?.shapeName));
+      console.log('[map] Придністров\'я кілець:',rings.length);
     }
 
     /* межі областей */
@@ -271,13 +283,10 @@ function buildVector(){
 
   // Активні тривоги: точні полігони районів
  // Окуповані території: НЕ чорні, тільки легка штрихована зона
-g += '<g id="occG">';
-g += occRings.map(r =>
-  '<path class="occ" fill="rgba(178,44,28,.12)" ' +
-  'stroke="rgba(178,44,28,.55)" stroke-width="1.2" ' +
-  'stroke-dasharray="5 4" vector-effect="non-scaling-stroke" ' +
-  'd="' + ringPath(r) + '"/>'
-).join('');
+g += '<g id="occG" opacity=".45">';
+g += occRings.map(r => '<path class="occ" d="' + ringPath(r) +
+  '" fill="#e0342a" stroke="#8e1c15" stroke-width=".7" stroke-opacity=".65" ' +
+  'vector-effect="non-scaling-stroke"/>').join('');
 g += '</g>';
 
 // Тривоги поверх окупованого шару
@@ -305,8 +314,9 @@ if(mapDataReady && adm2.length){
 
   // Кордон України
   g += '<g id="borderG">';
-  g += '<path class="country-border" fill="none" d="' + countryPath + '"/>';
-  g += '</g>';
+g += '<path class="country-border" d="' + countryPath +
+  '" fill="none" stroke="#1a1a1a" stroke-width="1.6" vector-effect="non-scaling-stroke"/>';
+g += '</g>';
 
 
   // Лінія фронту
@@ -322,6 +332,7 @@ if(mapDataReady && adm2.length){
     districts: adm2.length,
     oblasts: adm1.length
   });
+  $('#lgOcc').style.background='repeating-linear-gradient(45deg,rgba(224,52,42,.6) 0 3px,rgba(224,52,42,.2) 3px 6px)';
 }
 
 /* ═════ paintAlarms — реальні дані ═════ */

@@ -1,0 +1,6 @@
+.env
+.wrangler
+functions
+wrangler.toml
+worker.js
+_routes.json

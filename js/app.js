@@ -12,7 +12,6 @@ import {
   OBLAST_ORDER
 } from './alerts.js';
 
-import { FRONT_LINE } from '../data/front-line.js';
 
 const SPRITE_URL = '../assets/icons.svg';
 async function loadIconSprite(){const host=document.querySelector('#icon-sprite');if(!host)return;try{host.innerHTML=await(await fetch(SPRITE_URL)).text()}catch(e){console.warn('SVG sprite failed to load',e)}}
@@ -21,7 +20,8 @@ async function loadIconSprite(){const host=document.querySelector('#icon-sprite'
 await loadIconSprite();
 
 /* ═════ URLs ═════ */
-const ADM2_URL = './data/ukraine-adm2-simplified.geojson';
+const ADM2_URL = 'https://raw.githubusercontent.com/slawomirmatuszak/ukrainian_geodata/main/rayony.geojson';
+const ADM2_FB  = './data/ukraine-adm2-simplified.geojson';
 const ADM1_URL = 'https://gist.githubusercontent.com/tingeber/9cafe2675d6bfe0a5ce609e40872c0a3/raw/mapbox-geoBoundaries-UKR-ADM1.geojson';
 const ADM0_URL = '';
 const TRANSNISTRIA_URL = 'https://raw.githubusercontent.com/missinglink/osm-boundaries/master/data/000/065/335/000065335.geojson';
@@ -34,8 +34,6 @@ const DEEPSTATE_URL=(()=>{
 /* ═════ дані ═════ */
 const UA=[[23.60,51.52],[24.35,51.90],[25.20,51.92],[26.40,51.85],[27.70,51.60],[28.75,51.55],[29.30,51.40],[30.55,51.40],[30.62,51.90],[31.60,52.10],[32.40,52.25],[33.20,52.35],[34.10,51.70],[34.40,51.25],[35.10,51.20],[35.40,50.55],[36.60,50.30],[37.45,50.40],[38.20,50.00],[39.20,49.85],[40.15,49.60],[40.20,49.20],[39.80,48.85],[39.95,48.30],[40.10,48.25],[39.75,47.85],[38.90,47.85],[38.30,47.60],[38.25,47.10],[37.50,47.10],[36.75,46.70],[35.85,46.65],[35.30,46.00],[34.85,46.15],[34.20,46.20],[33.75,46.15],[33.20,46.20],[32.60,46.35],[31.90,46.60],[31.50,46.60],[30.95,46.55],[30.75,46.45],[30.20,45.85],[29.70,45.65],[29.00,45.35],[28.50,45.45],[28.25,45.50],[28.90,45.90],[29.55,46.35],[29.90,46.50],[29.60,47.00],[29.20,47.50],[28.35,48.15],[27.60,48.45],[26.65,48.30],[26.00,48.20],[25.50,47.95],[24.90,47.72],[24.20,47.90],[23.60,48.00],[23.15,48.10],[22.60,48.10],[22.15,48.40],[22.55,49.08],[22.70,49.40],[23.30,50.35],[24.10,50.85]];
 const CRIMEA=[[33.65,46.15],[34.25,46.05],[34.90,45.88],[35.50,45.95],[36.00,45.60],[36.60,45.45],[36.35,45.15],[35.60,45.10],[35.00,44.85],[34.40,44.70],[33.80,44.45],[33.45,44.60],[33.55,45.00],[33.20,45.20],[32.50,45.35],[32.60,45.60],[33.30,45.75],[33.10,46.00]];
-const FRONT=[[37.76,50.28],[37.72,49.98],[37.82,49.72],[37.75,49.50],[37.96,49.20],[38.10,48.98],[38.04,48.78],[37.86,48.62],[37.98,48.48],[37.72,48.36],[37.40,48.31],[37.25,48.18],[37.18,47.99],[36.93,47.87],[36.69,47.78],[36.38,47.73],[36.16,47.66],[35.84,47.58],[35.55,47.55],[35.23,47.49],[34.94,47.42],[34.63,47.31],[34.32,47.20],[33.95,47.10],[33.58,46.94],[33.24,46.78],[32.90,46.60],[32.50,46.43]];
-const OCC=FRONT.concat([[32.60,46.35],[33.20,46.20],[33.75,46.15],[34.20,46.20],[34.85,46.15],[35.30,46.00],[35.85,46.65],[36.75,46.70],[37.50,47.10],[38.25,47.10],[38.30,47.60],[38.90,47.85],[39.75,47.85],[40.10,48.25],[39.95,48.30],[39.80,48.85],[40.20,49.20],[40.15,49.60],[39.20,49.85],[38.20,50.00],[37.45,50.40]]);
 
 /* Координати для навігації по областях (назва API → [lon, lat]) */
 const OBLAST_COORDS={
@@ -202,7 +200,7 @@ async function loadMapData(){
     const dsFallback='https://raw.githubusercontent.com/cyterat/deepstate-map-data/main/data/deepstatemap_data_'+
       yesterday.getFullYear()+String(yesterday.getMonth()+1).padStart(2,'0')+String(yesterday.getDate()).padStart(2,'0')+'.geojson';
       const [ra,rd,rb1,rb0,rm]=await Promise.all([
-      getJSON(ADM2_URL).catch(()=>null),
+      getJSON(ADM2_URL).catch(()=>getJSON(ADM2_FB).catch(()=>null)),
       getJSON(DEEPSTATE_URL).catch(()=>getJSON(dsFallback).catch(()=>null)),
       getJSON(ADM1_URL).catch(()=>null),
       getJSON(ADM0_URL).catch(()=>null),
@@ -214,7 +212,7 @@ async function loadMapData(){
      if(ra){
      adm2=(ra.features||[]).map((f,i)=>{
      const c=center(f.geometry);
-     const shapeName=f.properties?.shapeName||f.properties?.name||('Район '+(i+1));
+     const shapeName = f.properties?.rayon || f.properties?.shapeName || f.properties?.name || ('Район '+(i+1));
      return{name:shapeName,oblastUa:'',lo:c[0],la:c[1],g:f.geometry,d:geomPath(f.geometry)};
     });
   }
@@ -405,52 +403,26 @@ g += ' ';
 
 /* ═════ paintAlarms — реальні дані ═════ */
 /* ═════ paintAlarms — три рівні: область / район / громада ═════ */
+
 function paintAlarms(){
-  const hasDistricts = mapDataReady && adm2.length > 0;
+  const on = S.alarmFill && mapDataReady;
 
-  $$('#alarmG .ac').forEach(path => {
-    const district = adm2[Number(path.dataset.i)];
-    const state = S.alarmFill && hasDistricts
-      ? raionStatus(district)
-      : 'none';
-
-    path.dataset.state = state;
-
-    if (state === 'full') {
-      path.setAttribute('fill', 'rgba(203,42,32,.30)');
-      path.setAttribute('fill-opacity', '1');
-      path.setAttribute('stroke', 'rgba(145,35,28,.95)');
-      path.setAttribute('stroke-width', '1.15');
-    } else if (state === 'partial') {
-      path.setAttribute('fill', 'rgba(203,42,32,.14)');
-      path.setAttribute('fill-opacity', '1');
-      path.setAttribute('stroke', 'rgba(145,35,28,.80)');
-      path.setAttribute('stroke-width', '1.0');
-    } else {
-      path.setAttribute('fill-opacity', '0');
-      path.setAttribute('stroke', 'rgba(58,42,38,.62)');
-      path.setAttribute('stroke-width', '0.85');
-    }
-
-    // Контур району завжди суцільний, без пунктиру
-    path.removeAttribute('stroke-dasharray');
+  $$('#alarmG .ac').forEach(p=>{
+    const st = on ? raionStatus(adm2[+p.dataset.i]) : 'none';
+    p.dataset.state = st;
+    p.setAttribute('display', st === 'none' ? 'none' : 'inline');
+    if (st === 'none') return;
+    p.setAttribute('fill', st === 'full' ? 'rgba(203,42,32,.30)' : 'rgba(203,42,32,.14)');
+    p.setAttribute('stroke-width', st === 'full' ? '1.15' : '1');
   });
 
-  const frontLayer = $('#frontG');
-  if (frontLayer) {
-    frontLayer.setAttribute(
-      'display',
-      S.frontLine ? 'inline' : 'none'
-    );
-  }
+  $$('#adm1G .ob').forEach(p=>{
+    const full = on && oblastStatus(p.dataset.oblast) === 'A';
+    p.setAttribute('display', full ? 'inline' : 'none');
+  });
 
-  const dimmer = $('#dimmer');
-  if (dimmer) {
-    dimmer.setAttribute(
-      'display',
-      S.dim ? 'inline' : 'none'
-    );
-  }
+  const occ = $('#occG'); if (occ) occ.setAttribute('display', S.frontLine ? 'inline' : 'none');
+  const dim = $('#dimmer'); if (dim) dim.setAttribute('display', S.dim ? 'inline' : 'none');
 }
 
 /* ═════ цілі ═════ */

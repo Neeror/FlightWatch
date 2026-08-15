@@ -342,3 +342,8 @@ dialog[open]{animation:lift .38s var(--e-out)}
   vector-effect:non-scaling-stroke;
   pointer-events:none;
 }
+#vec{shape-rendering:geometricPrecision}
+#alarmG .ac{stroke:rgb(178,28,20);stroke-linejoin:round;vector-effect:non-scaling-stroke;pointer-events:none;transition:opacity .2s ease}
+#adm1G .ob{fill:rgba(203,42,32,.18);stroke:rgb(168,22,16);stroke-width:1.9;stroke-linejoin:round;vector-effect:non-scaling-stroke;pointer-events:none}
+#occG .occ{fill:rgba(80,100,110,.22);stroke:rgba(40,45,48,.8);stroke-width:1;vector-effect:non-scaling-stroke;pointer-events:none}
+#borderG .country-border{fill:none;stroke:rgba(25,25,25,.9);stroke-width:1.6;vector-effect:non-scaling-stroke;pointer-events:none}

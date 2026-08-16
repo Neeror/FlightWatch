@@ -345,16 +345,13 @@ dialog[open]{animation:lift .38s var(--e-out)}
 }
 
 #occG {
-  opacity: .36;
+  opacity: .48;
 }
 
 #occG .occ {
-  fill: rgba(224, 52, 42, .20) !important;
-  stroke: rgba(190, 42, 32, .35) !important;
-  stroke-width: 1;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-  pointer-events: none;
+  fill: rgba(224, 52, 42, .34) !important;
+  stroke: rgba(150, 25, 20, .82) !important;
+  stroke-width: 1.15;
 }
 
 #borderG .country-border {

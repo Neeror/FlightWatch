@@ -23,7 +23,7 @@ await loadIconSprite();
 const ADM2_URL = 'https://raw.githubusercontent.com/slawomirmatuszak/ukrainian_geodata/main/rayony.geojson';
 const ADM2_FB  = './data/ukraine-adm2-simplified.geojson';
 const ADM1_URL = 'https://gist.githubusercontent.com/tingeber/9cafe2675d6bfe0a5ce609e40872c0a3/raw/mapbox-geoBoundaries-UKR-ADM1.geojson';
-const ADM0_URL = '';
+const ADM0_URL = 'https://raw.githubusercontent.com/wmgeolab/geoBoundaries/main/releaseData/gbOpen/UKR/ADM0/geoBoundaries-UKR-ADM0.geojson';
 const TRANSNISTRIA_URL = 'https://raw.githubusercontent.com/missinglink/osm-boundaries/master/data/000/065/335/000065335.geojson';
 const DEEPSTATE_URL=(()=>{
   const d=new Date();
@@ -93,8 +93,14 @@ const T=Object.fromEntries(TYPES.map(t=>[t.id,t]));
 const ROLE={uav:['БпЛА','#3a3a3a'],msl:['Ракети','#d13a2a'],avia:['Авіація','#3f4956'],kab:['КАБ','#5d6b48']};
 
 /* alarmNames тепер = повні офіційні назви з alerts.in.ua */
-let adm2=[], alarmNames=[...OBLAST_ORDER], frontRings=[FRONT], occRings=[OCC,CRIMEA], mapDataReady=false;
+let adm2=[], alarmNames=[...OBLAST_ORDER], occRings=[], mapDataReady=false;
 let uaBorderPath='', adm1=[];
+
+const SPAWN_EDGE=[
+  [37.8,50.1],[37.9,49.2],[38.0,48.5],
+  [37.3,48.2],[36.7,47.8],[35.8,47.6],
+  [34.9,47.4],[33.9,47.1],[32.9,46.6]
+];
 
 /* Відстеження попереднього стану для логу в ефірі */
 
@@ -223,7 +229,7 @@ async function loadMapData(){
       if(ds){
         if(ds.type==='MultiPolygon') occRings=ds.coordinates.map(polygon=>polygon[0]);
         else if(ds.type==='Polygon') occRings=[ds.coordinates[0]];
-         frontRings=[FRONT_LINE];
+
       }
     }
       if(rm){
@@ -384,13 +390,7 @@ g += ' ';
 
 
   // Лінія фронту
-   g += '<g id="frontG">';
- g += frontRings.map(r =>
-   '<path class="front-line" d="' + line(r) + '" fill="none" stroke="rgba(190,42,32,.62)"' +
-   ' stroke-width="1.45" stroke-linejoin="round" stroke-linecap="round"' +
-   ' vector-effect="non-scaling-stroke" pointer-events="none"/>'
- ).join('');
- g += '</g>';
+  
 
   $('#vg').innerHTML = g;
 
@@ -434,7 +434,8 @@ const dirName=h=>DIRS[Math.round((((h%360)+360)%360)/45)%8];
 function spawn(quiet){
   const t=pick(TYPES);let lo,la,hd,r=Math.random();
   if(t.role==='avia'||t.id==='kab'||t.id==='fpv'||t.id==='molnia'){
-    const f=(frontRings[0]||FRONT)[(Math.random()*(frontRings[0]||FRONT).length)|0];
+    const edge=occRings[0]?.length ? occRings[0] : SPAWN_EDGE;
+    const f=edge[(Math.random()*edge.length)|0];
     lo=f[0]+rnd(0.3,1.5);la=f[1]+rnd(-0.5,0.5);hd=rnd(235,305);
   }else if(r<0.42){lo=rnd(30.4,39.6);la=52.5;hd=rnd(150,215);}
   else if(r<0.76){lo=40.4;la=rnd(47.8,51.6);hd=rnd(230,292);}

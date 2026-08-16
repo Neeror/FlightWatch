@@ -114,16 +114,7 @@ button{background:none;border:0;cursor:pointer}
 .grp{padding-bottom:var(--sp-6);margin-bottom:var(--sp-6);border-bottom:1px solid var(--line)}
 .grp:last-child{border:0;margin-bottom:0;padding-bottom:0}
 .grp>.eyebrow{display:block;margin-bottom:var(--sp-4)}
-.row{display:flex;align-items:flex-start;gap:var(--sp-4);padding:9px 0}
-.row .lbl{font-size:.9375rem;font-weight:500}
-.row .hint{font-size:.75rem;color:var(--ink-3);margin-top:3px;max-width:44ch;text-wrap:pretty}
-.row .ctl{margin-left:auto;flex:none;padding-top:2px}
-.sw{position:relative;width:42px;height:24px;border-radius:99px;background:var(--line);flex:none;
-  transition:background .22s var(--e-quart)}
-.sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;
-  background:var(--panel);box-shadow:0 1px 3px oklch(0.225 0.014 55/.3);transition:transform .3s var(--e-out)}
-.sw[aria-checked=true]{background:var(--sig)}
-.sw[aria-checked=true]::after{transform:translateX(18px)}
+
 .slide{display:flex;align-items:center;gap:var(--sp-4);padding-top:10px}
 input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:3px;border-radius:3px;background:var(--line)}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;
@@ -388,11 +379,6 @@ dialog[open]{animation:lift .38s var(--e-out)}
             <div><div class="lbl">Показати тип повітряної цілі</div>
               <div class="hint">Підпис поруч із позначкою на мапі.</div></div>
             <div class="ctl"><button class="sw" role="switch" aria-checked="true" data-p="labels" aria-label="Показати тип цілі"></button></div>
-          </div>
-          <div class="row">
-            <div><div class="lbl">Розширена інформація</div>
-              <div class="hint">Швидкість, висота та курс.</div></div>
-            <div class="ctl"><button class="sw" role="switch" aria-checked="false" data-p="meta" aria-label="Розширена інформація"></button></div>
           </div>
           <div class="row">
             <div><div class="lbl">Сліди руху</div>

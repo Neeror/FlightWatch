@@ -80,16 +80,15 @@ function alertRegionName(props){
  return ADM1_ISO_TO_ALERT[iso] || GEO_TO_ALERT[props.shapeName] || '';
 }
 const TYPES=[
- {id:'shahed',cat:'БПЛА',n:'Ударний БпЛА',ic:'ic-shahed',c:'#2f2f2f',role:'uav',sp:[150,195],alt:[600,2600]},
- {id:'jetuav',cat:'БПЛА',n:'Реактивний БпЛА',ic:'ic-shahed',c:'#4a4a4a',role:'uav',sp:[430,560],alt:[1500,4200]},
- {id:'recon',cat:'БПЛА',n:'Розвідувальний БпЛА',ic:'ic-recon',c:'#8d8f84',role:'uav',sp:[110,155],alt:[1200,3200]},
- {id:'molnia',cat:'БПЛА',n:'БпЛА «Молнія»',ic:'ic-molniya',c:'#b98d4c',role:'uav',sp:[120,165],alt:[200,800]},
- {id:'fpv',cat:'БПЛА',n:'FPV дрон',ic:'ic-fpv',c:'#2c3134',role:'uav',sp:[80,130],alt:[80,400]},
- {id:'x101',cat:'РАКЕТИ',n:'Крилата ракета',ic:'ic-x101',c:'#00c9cc',role:'msl',sp:[720,890],alt:[50,300]},
- {id:'band',cat:'РАКЕТИ',n:'Ракета «Бандероль»',ic:'ic-banderol',c:'#e02020',role:'msl',sp:[520,620],alt:[100,500]},
- {id:'ball',cat:'РАКЕТИ',n:'Балістика',ic:'ic-iskander',c:'#6b6b3a',role:'msl',sp:[2400,3800],alt:[9000,45000]},
- {id:'kab',cat:'ІНШЕ',n:'КАБ',ic:'ic-kab2',c:'#5d6b48',role:'kab',sp:[600,800],alt:[1500,6000]},
- {id:'jetuav',cat:'БПЛА',n:'Реактивний БпЛА',ic:'ic-jet',c:'#4a4a4a',role:'uav',sp:[430,560],alt:[1500,4200]},
+  {id:'shahed',cat:'БПЛА',n:'Ударний БпЛА',ic:'ic-shahed',f:'shahed.svg',c:'#2f2f2f',role:'uav',sp:[150,195],alt:[600,2600]},
+  {id:'jetuav',cat:'БПЛА',n:'Реактивний БпЛА',ic:'ic-jet',f:'Герань-4.svg',c:'#4a4a4a',role:'uav',sp:[430,560],alt:[1500,4200]},
+  {id:'recon',cat:'БПЛА',n:'Розвідувальний БпЛА',ic:'ic-recon',f:'orion.svg',c:'#8d8f84',role:'uav',sp:[110,155],alt:[1200,3200]},
+  {id:'molnia',cat:'БПЛА',n:'БпЛА «Молнія»',ic:'ic-molniya',f:'Молнія.svg',c:'#b98d4c',role:'uav',sp:[120,165],alt:[200,800]},
+  {id:'fpv',cat:'БПЛА',n:'FPV дрон',ic:'ic-fpv',f:'ФПВ.svg',c:'#2c3134',role:'uav',sp:[80,130],alt:[80,400]},
+  {id:'x101',cat:'РАКЕТИ',n:'Крилата ракета',ic:'ic-x101',f:'x-101.svg',c:'#00c9cc',role:'msl',sp:[720,890],alt:[50,300]},
+  {id:'band',cat:'РАКЕТИ',n:'Ракета «Бандероль»',ic:'ic-banderol',f:'banderol.svg',c:'#e02020',role:'msl',sp:[520,620],alt:[100,500]},
+  {id:'ball',cat:'РАКЕТИ',n:'Балістика',ic:'ic-iskander',f:'Іскандер.svg',c:'#6b6b3a',role:'msl',sp:[2400,3800],alt:[9000,45000]},
+  {id:'kab',cat:'ІНШЕ',n:'КАБ',ic:'ic-kab2',f:'Каб.svg',c:'#5d6b48',role:'kab',sp:[600,800],alt:[1500,6000]}
 ];
 const T=Object.fromEntries(TYPES.map(t=>[t.id,t]));
 const ROLE={uav:['БпЛА','#3a3a3a'],msl:['Ракети','#d13a2a'],kab:['КАБ','#5d6b48']};
@@ -116,7 +115,7 @@ const y2lat=(y,z)=>{const n=Math.PI-2*Math.PI*y/(TS*2**z);return 180/Math.PI*Mat
 const w8=(lo,la)=>[lon2x(lo,Z8),lat2y(la,Z8)];
 
 /* ═════ стан ═════ */
-const DEF={size:1,labels:true,meta:false,trails:true,alarmFill:true,frontLine:true,dim:true,sound:false};
+const DEF={size:1,labels:true,trails:true,alarmFill:true,frontLine:true,dim:true,sound:false};
 const S={...DEF,off:new Set()};
 const view={lat:48.55,lon:31.4,zoom:6.1};
 const MINZ=5,MAXZ=11;
@@ -484,11 +483,20 @@ function spawn(quiet){
 }
 function mkEl(tg){
   const d=document.createElement('div');
-  d.className='tgt fresh';d.style.setProperty('--tc',tg.t.c);
-  d.innerHTML='<svg class="ico" viewBox="0 0 100 100"><use href="#'+tg.t.ic+'" width="100" height="100"/></svg>'+
-              '<div class="tag"><span>'+tg.t.n+'</span><em></em></div>';
+  d.className='tgt fresh';
+  d.style.setProperty('--tc',tg.t.c);
+
+  d.innerHTML=
+    '<img class="ico" src="./'+encodeURIComponent(tg.t.f)+'" alt="">'+
+    '<div class="tag"><b>'+tg.t.n+'</b><em></em></div>';
+
   $('#marks').appendChild(d);
-  tg.el=d;tg.ico=d.querySelector('.ico');tg.tag=d.querySelector('.tag');tg.em=d.querySelector('em');
+
+  tg.el=d;
+  tg.ico=d.querySelector('.ico');
+  tg.tag=d.querySelector('.tag');
+  tg.em=d.querySelector('em');
+
   d.style.pointerEvents='none';
   setTimeout(()=>d.classList.remove('fresh'),650);
 }
@@ -504,11 +512,10 @@ function renderTargets(){
     tg.ico.style.width=px+'px';tg.ico.style.height=px+'px';
     tg.ico.style.transform='translate(-50%,-50%) rotate('+tg.hd.toFixed(1)+'deg)';
     const open=tg.el.classList.contains('open');
-    tg.tag.style.display=(S.labels||open)?'flex':'none';
+    tg.tag.style.display=open?'flex':'none';
     tg.tag.style.left=(px*0.55+5)+'px';
     tg.tag.style.top='-11px';
-    if(S.meta||open){tg.em.style.display='';tg.em.textContent=Math.round(tg.sp)+' км/год · '+tg.alt.toLocaleString('uk-UA')+' м · '+Math.round(tg.hd)+'°';}
-    else tg.em.style.display='none';
+    tg.em.style.display='none';
   }
   $('#totN').textContent=n;
   $('#chips').innerHTML=Object.keys(ROLE).map(r=>

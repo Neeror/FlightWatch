@@ -88,9 +88,11 @@ const TYPES=[
  {id:'x101',cat:'РАКЕТИ',n:'Крилата ракета',ic:'ic-x101',c:'#00c9cc',role:'msl',sp:[720,890],alt:[50,300]},
  {id:'band',cat:'РАКЕТИ',n:'Ракета «Бандероль»',ic:'ic-banderol',c:'#e02020',role:'msl',sp:[520,620],alt:[100,500]},
  {id:'ball',cat:'РАКЕТИ',n:'Балістика',ic:'ic-iskander',c:'#6b6b3a',role:'msl',sp:[2400,3800],alt:[9000,45000]},
- {id:'kab',cat:'ІНШЕ',n:'КАБ',ic:'ic-kab2',c:'#5d6b48',role:'kab',sp:[600,800],alt:[1500,6000]}];
+ {id:'kab',cat:'ІНШЕ',n:'КАБ',ic:'ic-kab2',c:'#5d6b48',role:'kab',sp:[600,800],alt:[1500,6000]},
+ {id:'jetuav',cat:'БПЛА',n:'Реактивний БпЛА',ic:'ic-jet',c:'#4a4a4a',role:'uav',sp:[430,560],alt:[1500,4200]},
+];
 const T=Object.fromEntries(TYPES.map(t=>[t.id,t]));
-const ROLE={uav:['БпЛА','#3a3a3a'],msl:['Ракети','#d13a2a'],avia:['Авіація','#3f4956'],kab:['КАБ','#5d6b48']};
+const ROLE={uav:['БпЛА','#3a3a3a'],msl:['Ракети','#d13a2a'],kab:['КАБ','#5d6b48']};
 
 /* alarmNames тепер = повні офіційні назви з alerts.in.ua */
 let adm2=[], alarmNames=[...OBLAST_ORDER], occRings=[], mapDataReady=false;
@@ -142,7 +144,22 @@ function screenOf(lo,la){const [w,h]=size(),z=view.zoom;
 function latlngAt(px,py){const [w,h]=size(),z=view.zoom;
   return [y2lat(lat2y(view.lat,z)+py-h/2,z), x2lon(lon2x(view.lon,z)+px-w/2,z)];}
 
+  const BB={w:21.9,e:40.4,s:43.9,n:52.5};           // bbox України з невеликим запасом
+function clampView(){
+  const [w,h]=size();
+  const fit=Math.max(Math.log2(w/(lon2x(BB.e,0)-lon2x(BB.w,0))),
+                     Math.log2(h/(lat2y(BB.s,0)-lat2y(BB.n,0))));
+  view.zoom=Math.min(MAXZ,Math.max(Math.max(MINZ,fit),view.zoom));
+  const z=view.zoom,x0=lon2x(BB.w,z),x1=lon2x(BB.e,z),y0=lat2y(BB.n,z),y1=lat2y(BB.s,z);
+  let cx=lon2x(view.lon,z),cy=lat2y(view.lat,z);
+  cx=(x1-x0<=w)?(x0+x1)/2:Math.min(Math.max(cx,x0+w/2),x1-w/2);
+  cy=(y1-y0<=h)?(y0+y1)/2:Math.min(Math.max(cy,y0+h/2),y1-h/2);
+  view.lon=x2lon(cx,z); view.lat=y2lat(cy,z);
+}
+
+
 function drawTiles(){
+  clampView()
   const tz=Math.max(MINZ,Math.min(MAXZ,Math.round(view.zoom)));
   const [w,h]=size(),s=2**(view.zoom-tz);
   let L=levels.get(tz);

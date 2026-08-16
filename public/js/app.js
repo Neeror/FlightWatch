@@ -139,6 +139,27 @@ function tileURL(z,x,y){
 function size(){const e=$('#mapwrap');return [e.clientWidth,e.clientHeight];}
 function paneT(z){const [w,h]=size(),s=2**(view.zoom-z);
   return 'translate('+w/2+'px,'+h/2+'px) scale('+s+') translate('+(-lon2x(view.lon,z))+'px,'+(-lat2y(view.lat,z))+'px)';}
+  function targetAt(px,py){
+ const R=Math.max(20,22*S.size); let best=null,bd=R*R;
+ for(const tg of targets){
+  if(S.off.has(tg.t.id))continue;
+  const [x,y]=screenOf(tg.lo,tg.la), d=(x-px)**2+(y-py)**2;
+  if(d<bd){bd=d;best=tg;}
+ }
+ return best;
+}
+(()=>{
+ const wrap=$('#mapwrap'); let sx=0,sy=0,moved=false;
+ wrap.addEventListener('pointerdown',e=>{sx=e.clientX;sy=e.clientY;moved=false},true);
+ wrap.addEventListener('pointermove',e=>{if(Math.hypot(e.clientX-sx,e.clientY-sy)>6)moved=true},true);
+ wrap.addEventListener('pointerup',e=>{
+  if(moved||e.button)return;                       // це був драг, не тап
+  const r=wrap.getBoundingClientRect();
+  const tg=targetAt(e.clientX-r.left,e.clientY-r.top);
+  for(const o of targets) if(o!==tg&&o.el) o.el.classList.remove('open');
+  if(tg&&tg.el) tg.el.classList.toggle('open');
+ },true);
+})();
 function screenOf(lo,la){const [w,h]=size(),z=view.zoom;
   return [lon2x(lo,z)-lon2x(view.lon,z)+w/2, lat2y(la,z)-lat2y(view.lat,z)+h/2];}
 function latlngAt(px,py){const [w,h]=size(),z=view.zoom;
@@ -468,14 +489,11 @@ function mkEl(tg){
               '<div class="tag"><span>'+tg.t.n+'</span><em></em></div>';
   $('#marks').appendChild(d);
   tg.el=d;tg.ico=d.querySelector('.ico');tg.tag=d.querySelector('.tag');tg.em=d.querySelector('em');
-  d.addEventListener('click', e => {
-  e.stopPropagation();
-  d.classList.toggle('open');
-});
+  d.style.pointerEvents='none';
   setTimeout(()=>d.classList.remove('fresh'),650);
 }
 function renderTargets(){
-  let n=0,by={uav:0,msl:0,avia:0,kab:0};
+  let n=0,by={uav:0,msl:0,kab:0};
   for(const tg of targets){
     if(!tg.el)mkEl(tg);
     if(S.off.has(tg.t.id)){tg.el.style.display='none';continue;}
@@ -485,12 +503,11 @@ function renderTargets(){
     const px=Math.round(30*S.size);
     tg.ico.style.width=px+'px';tg.ico.style.height=px+'px';
     tg.ico.style.transform='translate(-50%,-50%) rotate('+tg.hd.toFixed(1)+'deg)';
-    tg.tag.style.display = S.labels && tg.el.classList.contains('open')
-  ? 'flex'
-  : 'none';
+    const open=tg.el.classList.contains('open');
+    tg.tag.style.display=(S.labels||open)?'flex':'none';
     tg.tag.style.left=(px*0.55+5)+'px';
     tg.tag.style.top='-11px';
-    if(S.meta){tg.em.style.display='';tg.em.textContent=Math.round(tg.sp)+' км/год · '+tg.alt.toLocaleString('uk-UA')+' м · '+Math.round(tg.hd)+'°';}
+    if(S.meta||open){tg.em.style.display='';tg.em.textContent=Math.round(tg.sp)+' км/год · '+tg.alt.toLocaleString('uk-UA')+' м · '+Math.round(tg.hd)+'°';}
     else tg.em.style.display='none';
   }
   $('#totN').textContent=n;

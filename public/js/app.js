@@ -790,7 +790,7 @@ document.addEventListener('click',e=>{
   if(e.target.closest('#openSupport')){$('#dSupport').showModal();return;}
   if(e.target.closest('#closeSupport')){$('#dSupport').close();return;}
   const cp=e.target.closest('#copyCard');
-  if(cp){if(navigator.clipboard)navigator.clipboard.writeText('4874100031515474');
+  if(cp){if(navigator.clipboard)navigator.clipboard.writeText('4874 1000 3088 4673');
     cp.textContent='Скопійовано';setTimeout(()=>cp.textContent='Копіювати',1800);return;}
 
   /* Навігація по кліку на область/район */

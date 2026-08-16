@@ -345,7 +345,7 @@ function buildVector(){
 
   // Активні тривоги: точні полігони районів
  // Окуповані території: НЕ чорні, тільки легка штрихована зона
-g += '<g id="occG" opacity="0.62">';
+g += '<g id="occG">';
 g += occRings.map(r =>
   '<path class="occ" d="' + ringPath(r) + '"/>'
 ).join('');
@@ -368,7 +368,7 @@ if (mapDataReady && adm2.length) {
 g += '<g id="adm1G">';
 
 g += adm1.map(a =>
-  '<path class="oblast-border" d="' + a.d + '" display="none"/>'
+  '<path class="oblast-border" d="' + a.d + '"/>'
 ).join('');
 
 g += adm1.filter(a => a.ua).map(a =>

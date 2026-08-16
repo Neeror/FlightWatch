@@ -303,11 +303,11 @@ dialog[open]{animation:lift .38s var(--e-out)}
 @media (prefers-reduced-motion:reduce){
   *,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
 #vec path {
   shape-rendering: geometricPrecision;
 }
 
-/* Райони з тривогою */
 #alarmG .ac {
   fill: none;
   stroke: none;
@@ -331,12 +331,10 @@ dialog[open]{animation:lift .38s var(--e-out)}
   stroke-width: .75;
 }
 
-/* Межі областей не видно у спокійному стані */
 #adm1G .oblast-border {
   display: none;
 }
 
-/* Червона обводка області тільки при повній тривозі */
 #adm1G .ob {
   fill: none;
   stroke: rgb(178, 28, 20);
@@ -346,7 +344,6 @@ dialog[open]{animation:lift .38s var(--e-out)}
   pointer-events: none;
 }
 
-/* Окупація: спокійний синьо-сірий шар */
 #occG {
   opacity: .62;
 }
@@ -360,7 +357,6 @@ dialog[open]{animation:lift .38s var(--e-out)}
   pointer-events: none;
 }
 
-/* Тонкий контур України */
 #borderG .country-border {
   fill: none;
   stroke: rgba(35, 30, 28, .9);

@@ -320,17 +320,16 @@ dialog[open]{animation:lift .38s var(--e-out)}
 }
 
 #alarmG .ac[data-state="full"] {
-  fill: none !important;
+  fill: rgba(203, 42, 32, .24) !important;
   stroke: rgba(178, 70, 62, .72);
   stroke-width: .85;
 }
 
 #alarmG .ac[data-state="partial"] {
-  fill: none !important;
+  fill: rgba(203, 42, 32, .12) !important;
   stroke: rgba(178, 70, 62, .48);
   stroke-width: .7;
 }
-
 #adm1G .oblast-border {
   display: none;
 }

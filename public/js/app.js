@@ -345,43 +345,38 @@ function buildVector(){
 
   // Активні тривоги: точні полігони районів
  // Окуповані території: НЕ чорні, тільки легка штрихована зона
-g += '<g id="occG" opacity="0.36">';
- g += occRings.map(r =>
-   '<path class="occ" d="' + ringPath(r) + '" fill="rgba(224,52,42,.20)"' +
-   ' stroke="rgba(190,42,32,.35)" stroke-width="1"' +
-   ' vector-effect="non-scaling-stroke" pointer-events="none"/>'
- ).join('');
- g += '</g>';
-
+g += '<g id="occG" opacity="0.62">';
+g += occRings.map(r =>
+  '<path class="occ" d="' + ringPath(r) + '"/>'
+).join('');
+g += '</g>';
 // Тривоги поверх окупованого шару
 g += '<g id="alarmG">';
 
 if (mapDataReady && adm2.length) {
   g += adm2.map((a, i) => `
-    <path
-      class="ac"
-      data-i="${i}"
-      data-oblast="${esc(a.oblastUa || '')}"
-      data-raion="${esc(a.name)}"
-      d="${a.d}"
-      fill="rgba(203,42,32,.30)"
-      fill-opacity="0"
-      stroke="rgba(58,42,38,.62)"
-      stroke-width="0.85"
-      stroke-linejoin="round"
-      vector-effect="non-scaling-stroke"
-    />
-  `).join('');
+  <path
+    class="ac"
+    data-i="${i}"
+    data-oblast="${esc(a.oblastUa || '')}"
+    data-raion="${esc(a.name)}"
+    d="${a.d}"
+  />
+`).join('');
 }
 
-g += '</g>';
+g += '<g id="adm1G">';
 
-  // Межі областей
-  g += '<g id="adm1G">';
-  g += adm1.map(a =>
-    '<path class="oblast-border" d="' + a.d + '"/>'
-  ).join('');
-  g += '</g>';
+g += adm1.map(a =>
+  '<path class="oblast-border" d="' + a.d + '" display="none"/>'
+).join('');
+
+g += adm1.filter(a => a.ua).map(a =>
+  '<path class="ob" data-oblast="' + esc(a.ua) +
+  '" d="' + a.d + '" display="none"/>'
+).join('');
+
+g += '</g>';
 
   // Кордон України
    g += ' ';

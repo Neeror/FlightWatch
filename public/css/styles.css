@@ -361,3 +361,15 @@ dialog[open]{animation:lift .38s var(--e-out)}
   vector-effect: non-scaling-stroke;
   pointer-events: none;
 }
+#marks .tgt {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+#marks .tgt .tag {
+  display: none;
+}
+
+#marks .tgt.open .tag {
+  display: flex;
+}

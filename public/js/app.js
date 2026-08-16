@@ -451,6 +451,10 @@ function mkEl(tg){
               '<div class="tag"><span>'+tg.t.n+'</span><em></em></div>';
   $('#marks').appendChild(d);
   tg.el=d;tg.ico=d.querySelector('.ico');tg.tag=d.querySelector('.tag');tg.em=d.querySelector('em');
+  d.addEventListener('click', e => {
+  e.stopPropagation();
+  d.classList.toggle('open');
+});
   setTimeout(()=>d.classList.remove('fresh'),650);
 }
 function renderTargets(){
@@ -464,7 +468,9 @@ function renderTargets(){
     const px=Math.round(30*S.size);
     tg.ico.style.width=px+'px';tg.ico.style.height=px+'px';
     tg.ico.style.transform='translate(-50%,-50%) rotate('+tg.hd.toFixed(1)+'deg)';
-    tg.tag.style.display=S.labels?'':'none';
+    tg.tag.style.display = S.labels && tg.el.classList.contains('open')
+  ? 'flex'
+  : 'none';
     tg.tag.style.left=(px*0.55+5)+'px';
     tg.tag.style.top='-11px';
     if(S.meta){tg.em.style.display='';tg.em.textContent=Math.round(tg.sp)+' км/год · '+tg.alt.toLocaleString('uk-UA')+' м · '+Math.round(tg.hd)+'°';}

@@ -1,0 +1,66 @@
+{
+ "apiId": 0,
+  "apiHash": "ВСТАВ_API_HASH",
+  "phone": "+380688432479",
+  "sessionFile": "session.string",
+  "logFile": "shahed-messages.log",
+  "trackTtlMinutes": 240,
+  "testMode": true,
+  "testLimit": 40,
+  "chats": [
+    {
+      "id": "kherson_monitoring",
+      "name": "Херсонщина Моніторинг",
+      "region": "kherson",
+      "mode": "filter",
+      "categories": ["fpv", "molniya", "kab", "recon"],
+      "statusPatterns": ["оновлено", "❌", "✅"]
+    },
+    {
+      "id": "sumygo",
+      "name": "СУМИ / SUMY GO",
+      "region": "sumy",
+      "mode": "filter",
+      "categories": ["fpv", "molniya", "kab", "recon"]
+    },
+    {
+      "id": "radar_zaporizhzhya",
+      "name": "Радар Запоріжжя",
+      "region": "zaporizhzhia",
+      "mode": "filter",
+      "categories": ["fpv", "molniya", "kab", "recon"]
+    },
+    {
+      "id": "monitor1654",
+      "name": "monitor 1654 | Харків",
+      "region": "kharkiv",
+      "mode": "filter",
+      "categories": ["fpv", "molniya", "kab", "recon"]
+    },
+    {
+      "id": "ukraine_pyxx",
+      "name": "Повітряний простір | Напрямок ракет",
+      "mode": "filter",
+      "categories": ["shahed", "ballistic", "recon"]
+    },
+    {
+      "id": "povitryanatrivogaaa",
+      "name": "Карта повітряних тривог",
+      "mode": "filter",
+      "categories": ["shahed", "ballistic"]
+    },
+    {
+      "id": "StrategicaviationT",
+      "name": "Стратегічна авіація",
+      "mode": "filter",
+      "categories": ["ballistic", "kab"]
+    },
+    {
+      "id": "Ukrainian_Intelligence",
+      "name": "Розвідка України",
+      "mode": "filter",
+      "categories": ["shahed", "ballistic", "kab", "recon"]
+    },
+    { "id": "flight_watch", "name": "Flight Watch", "mode": "all" }
+  ]
+}

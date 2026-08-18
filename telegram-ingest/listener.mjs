@@ -6,7 +6,7 @@ import { StringSession } from "telegram/sessions/index.js";
 import { NewMessage, EditedMessage } from "telegram/events/index.js";
 import { ConnectionTCPObfuscated } from "telegram/network/connection/index.js";
 import input from "input";
-import { matchMessage, detectStatus } from "./matcher.mjs";
+import { matchMessage } from "./matcher.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const configPath = path.join(__dirname, "config.json");
@@ -74,7 +74,15 @@ for (const chat of chats) {
     };
     for (const key of [raw, `-${raw}`, `-100${raw}`]) registry.set(key, meta);
     entities.push(entity);
-    console.log(`OK   ${meta.label} → ${chat.mode || "filter"} [${(chat.categories || ["всі"]).join(", ")}]`);
+    const flags = [
+      chat.takeEdits === false ? "без правок" : "+правки",
+      chat.takeReplies === false ? "без відповідей" : "+відповіді",
+      chat.takeStatusOnly ? "+відбої/чисто" : null,
+      chat.debug ? "debug" : null,
+    ].filter(Boolean);
+    console.log(
+      `OK ${meta.label} → ${chat.mode || "filter"} [${(chat.categories || ["всі"]).join(", ")}] (${flags.join(", ")})`
+    );
   } catch (e) {
     console.error(`FAIL ${ref}: ${e.message}`);
   }
@@ -114,10 +122,12 @@ function buildPayload(message, meta, result, extra = {}) {
     chat: meta.label,
     chatRef: meta.ref,
     region: meta.region || null,
-    kind: result.kind,                 // alert | followup | edit | all
-    categories: result.categories,     // ["fpv"] / ["kab"] / ["recon"] ...
+    matched: result.matched !== false,
+    kind: result.kind,                 // alert | followup | edit | status | all | skip
+    reason: result.reason || null,     // category | reply-to-tracked | status-only | edits-disabled | no-match
+    categories: result.categories,     // ["cruise"] / ["banderol"] / ["shahed"] ...
     hits: result.hits,                 // що саме зматчилось
-    status: result.status || null,     // "оновлено", "❌", "чисто" ...
+    status: result.status || null,     // "оновлено", "❌", "чисто", "Відбій" ...
     isStatusUpdate: Boolean(result.status),
     replyTo: replyId(message) || null,
     parentId: extra.parentId || null,
@@ -150,7 +160,12 @@ async function handle(evt, { isEdit }) {
       isEdit,
       wasTracked: tracked.has(selfKey),
     });
-    if (!result.matched) return;
+
+    if (!result.matched) {
+      // debug-канал (тестовий): логуємо й відкинуте, щоб видно було причину
+      if (meta.debug) emit(buildPayload(message, meta, result, { parentId: rid || null }));
+      return;
+    }
 
     emit(
       buildPayload(message, meta, result, {
@@ -185,7 +200,10 @@ if (testMode) {
       const result = matchMessage(message.text, meta, {
         isReplyToTracked: rid ? localTracked.has(rid) : false,
       });
-      if (!result.matched) continue;
+      if (!result.matched) {
+        if (meta.debug) emit(buildPayload(message, meta, result, { parentId: rid || null }));
+        continue;
+      }
       hits++;
       localTracked.add(message.id);
       emit(buildPayload(message, meta, result, { parentId: rid || null }));

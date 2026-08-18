@@ -1,7 +1,7 @@
 {
- "apiId": 0,
-  "apiHash": "ВСТАВ_API_HASH",
-  "phone": "+380688432479",
+  "apiId": 35680515,
+  "apiHash": "5dae59fd1c697095586003b7cd585e2d",
+  "phone": "+18507254827",
   "sessionFile": "session.string",
   "logFile": "shahed-messages.log",
   "trackTtlMinutes": 240,
@@ -41,26 +41,58 @@
       "id": "ukraine_pyxx",
       "name": "Повітряний простір | Напрямок ракет",
       "mode": "filter",
-      "categories": ["shahed", "ballistic", "recon"]
+      "categories": ["shahed", "ballistic", "cruise", "recon"]
     },
+
     {
-      "id": "povitryanatrivogaaa",
-      "name": "Карта повітряних тривог",
+      "id": "flight_watch",
+      "name": "Flight Watch — тільки балістика + відбої",
       "mode": "filter",
-      "categories": ["shahed", "ballistic"]
+      "categories": ["ballistic"],
+      "takeReplies": true,
+      "takeEdits": false,
+      "takeStatusOnly": true,
+      "statusPatterns": ["відпочивайте", "відбій"]
     },
     {
       "id": "StrategicaviationT",
-      "name": "Стратегічна авіація",
+      "name": "Стратегічна авіація — бандеролі",
       "mode": "filter",
-      "categories": ["ballistic", "kab"]
+      "categories": ["banderol", "cruise", "ballistic", "kab"],
+      "takeReplies": true,
+      "takeEdits": true,
+      "takeStatusOnly": true
     },
     {
-      "id": "Ukrainian_Intelligence",
-      "name": "Розвідка України",
+      "id": "kudy_letyt",
+      "name": "Куди летить — КР Х-101 + дорозвідка",
       "mode": "filter",
-      "categories": ["shahed", "ballistic", "kab", "recon"]
+      "categories": ["cruise", "recon"],
+      "takeReplies": true,
+      "takeEdits": true,
+      "takeStatusOnly": true,
+      "extraPatterns": {
+        "cruise": ["(?<![\\p{L}\\p{N}])кр(?![\\p{L}\\p{N}])"]
+      }
     },
-    { "id": "flight_watch", "name": "Flight Watch", "mode": "all" }
+    {
+      "id": "povitryanatrivogaaa",
+      "name": "Карта повітряних тривог — шахеди",
+      "mode": "filter",
+      "categories": ["shahed", "ballistic"],
+      "takeReplies": true,
+      "takeEdits": true,
+      "takeStatusOnly": true
+    },
+    {
+      "id": "xnjfchf",
+      "name": "Test2",
+      "mode": "filter",
+      "categories": ["shahed", "ballistic", "cruise", "banderol", "kab", "fpv", "molniya", "recon"],
+      "takeReplies": true,
+      "takeEdits": true,
+      "takeStatusOnly": true,
+      "debug": true
+    }
   ]
 }

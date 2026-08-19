@@ -54,15 +54,13 @@
       "takeStatusOnly": true,
       "statusPatterns": ["відпочивайте", "відбій"]
     },
-    {
-      "id": "StrategicaviationT",
-      "name": "Стратегічна авіація — бандеролі",
-      "mode": "filter",
-      "categories": ["banderol", "cruise", "ballistic", "kab"],
-      "takeReplies": true,
-      "takeEdits": true,
-      "takeStatusOnly": true
-    },
+   { 
+    "id": "StrategicaviationT", 
+    "name": "Стратегічна авіація — бандеролі",
+    "mode": "filter", "categories": ["banderol"],
+    "takeReplies": true, 
+    "takeEdits": true, 
+    "takeStatusOnly": false },
     {
       "id": "kudy_letyt",
       "name": "Куди летить — КР Х-101 + дорозвідка",
@@ -75,15 +73,15 @@
         "cruise": ["(?<![\\p{L}\\p{N}])кр(?![\\p{L}\\p{N}])"]
       }
     },
-    {
-      "id": "povitryanatrivogaaa",
+    { 
+      "id": "povitryanatrivogaaa", 
       "name": "Карта повітряних тривог — шахеди",
       "mode": "filter",
-      "categories": ["shahed", "ballistic"],
-      "takeReplies": true,
+      "categories": ["shahed"],
+      "takeReplies": true, 
       "takeEdits": true,
       "takeStatusOnly": true
-    },
+     },
     {
       "id": "xnjfchf",
       "name": "Test2",

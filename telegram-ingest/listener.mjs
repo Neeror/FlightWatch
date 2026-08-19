@@ -1,12 +1,20 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { TelegramClient } from "telegram";
-import { StringSession } from "telegram/sessions/index.js";
-import { NewMessage, EditedMessage } from "telegram/events/index.js";
-import { ConnectionTCPObfuscated } from "telegram/network/connection/index.js";
+import telegram from "telegram";
+import sessions from "telegram/sessions/index.js";
+import events from "telegram/events/index.js";
+import editedMod from "telegram/events/EditedMessage.js";
+import connections from "telegram/network/connection/index.js";
 import input from "input";
 import { matchMessage } from "./matcher.mjs";
+
+const { TelegramClient } = telegram;
+const { StringSession } = sessions;
+const { NewMessage } = events;
+const { EditedMessage } = editedMod;
+const { ConnectionTCPObfuscated } = connections;
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const configPath = path.join(__dirname, "config.json");

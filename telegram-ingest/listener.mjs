@@ -15,7 +15,6 @@ const { NewMessage } = events;
 const { EditedMessage } = editedMod;
 const { ConnectionTCPObfuscated } = connections;
 
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const configPath = path.join(__dirname, "config.json");
 
@@ -42,7 +41,21 @@ if (!chats.length) {
 const sessionFile = path.join(__dirname, String(cfg.sessionFile || "session.string"));
 const logFile = path.join(__dirname, String(cfg.logFile || "shahed-messages.log"));
 const testMode = Boolean(cfg.testMode);
-const testLimit = Number(cfg.testLimit || 30);
+const testChat = String(cfg.testChat || "").trim();
+
+let activeChats = chats;
+if (testMode) {
+  const pick = testChat
+    ? chats.filter(c => String(c.id ?? c.username ?? "") === testChat || c.name === testChat)
+    : chats.slice(0, 1);
+  if (!pick.length) {
+    console.error(`TEST MODE: канал "${testChat}" не знайдено у chats.`);
+    process.exit(1);
+  }
+  activeChats = pick.map(c => ({ ...c, debug: true }));
+  console.log(`--- TEST MODE (realtime): ${activeChats[0].name || activeChats[0].id} ---`);
+}
+
 const TRACK_TTL_MS = Number(cfg.trackTtlMinutes || 240) * 60_000;
 
 const sessionString = fs.existsSync(sessionFile) ? fs.readFileSync(sessionFile, "utf8").trim() : "";
@@ -67,7 +80,7 @@ if (saved !== sessionString) fs.writeFileSync(sessionFile, saved, "utf8");
 const registry = new Map();
 const entities = [];
 
-for (const chat of chats) {
+for (const chat of activeChats) {
   const ref = String(chat.id ?? chat.username ?? "").trim();
   if (!ref) continue;
   try {
@@ -133,9 +146,9 @@ function buildPayload(message, meta, result, extra = {}) {
     matched: result.matched !== false,
     kind: result.kind,                 // alert | followup | edit | status | all | skip
     reason: result.reason || null,     // category | reply-to-tracked | status-only | edits-disabled | no-match
-    categories: result.categories,     // ["cruise"] / ["banderol"] / ["shahed"] ...
-    hits: result.hits,                 // що саме зматчилось
-    status: result.status || null,     // "оновлено", "❌", "чисто", "Відбій" ...
+    categories: result.categories,
+    hits: result.hits,
+    status: result.status || null,
     isStatusUpdate: Boolean(result.status),
     replyTo: replyId(message) || null,
     parentId: extra.parentId || null,
@@ -195,35 +208,24 @@ async function handle(evt, { isEdit }) {
   }
 }
 
-// ── тестовий прогін по історії ────────────────────────────────────
-if (testMode) {
-  console.log(`--- TEST MODE: останні ${testLimit} з кожного каналу ---`);
-  for (const entity of entities) {
-    const meta = registry.get(entity.id.toString());
-    const history = await client.getMessages(entity, { limit: testLimit });
-    const localTracked = new Set();
-    let hits = 0;
-    for (const message of [...history].reverse()) {
-      const rid = replyId(message);
-      const result = matchMessage(message.text, meta, {
-        isReplyToTracked: rid ? localTracked.has(rid) : false,
-      });
-      if (!result.matched) {
-        if (meta.debug) emit(buildPayload(message, meta, result, { parentId: rid || null }));
-        continue;
-      }
-      hits++;
-      localTracked.add(message.id);
-      emit(buildPayload(message, meta, result, { parentId: rid || null }));
-    }
-    console.log(`# ${meta.label}: ${hits}/${history.length}`);
-  }
-  await client.disconnect();
-  process.exit(0);
-}
+// фільтр по каналах робиться в handle() через registry,
+// у білдер entity не передаємо — gramJS на них падає
+client.addEventHandler((evt) => handle(evt, { isEdit: false }), new NewMessage({}));
+client.addEventHandler((evt) => handle(evt, { isEdit: true }), new EditedMessage({}));
 
-client.addEventHandler((evt) => handle(evt, { isEdit: false }), new NewMessage({ chats: entities }));
-client.addEventHandler((evt) => handle(evt, { isEdit: true }), new EditedMessage({ chats: entities }));
+// ── keepalive: не даємо процесу тихо здохнути після обриву ─────────
+setInterval(async () => {
+  try {
+    if (!client.connected) {
+      console.log("reconnect...");
+      await client.connect();
+    } else {
+      await client.getMe();
+    }
+  } catch (e) {
+    console.error("keepalive:", e.message);
+  }
+}, 30_000);
 
 console.log(`Слухаю ${entities.length} каналів (new + edited). Лог: ${logFile}`);
 

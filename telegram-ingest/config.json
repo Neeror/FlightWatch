@@ -6,7 +6,7 @@
   "logFile": "shahed-messages.log",
   "trackTtlMinutes": 240,
   "testMode": true,
-  "testLimit": 40,
+  "testChat": "xnjfchf",
   "chats": [
     {
       "id": "kherson_monitoring",

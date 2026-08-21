@@ -521,12 +521,58 @@ function renderTargets(){
   $('#chips').innerHTML=Object.keys(ROLE).map(r=>
     '<span class="chip"><i style="background:'+ROLE[r][1]+'"></i>'+ROLE[r][0]+' <b>'+by[r]+'</b></span>').join('');
 }
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/* колір сліду за типом цілі (структура, не колір іконки) */
+const TRAIL_COLOR = {
+  x101:   '#22c55e', // Крилата ракета — зелена
+  band:   '#facc15', // «Бандероль» — жовта
+  shahed: '#ef2b2b', // Ударний шахед — червона
+  jetuav: '#a855f7', // Реактивний шахед — фіолетова
+  molnia: '#ff8c1a', // «Молнія» — оранжева
+  recon:  '#9ca3af', // Розвідувальний — сіра
+  kab:    '#3b82f6', // КАБ — синя
+  ball:   '#ff2d78', // Балістика
+  fpv:    '#00e5d0', // FPV
+};
+const trailColor = t => TRAIL_COLOR[t.id] || t.c || '#ef2b2b';
+
+const TRAIL_MS = 450;   // як часто дописуємо точку
+const TRAIL_MAX = 320;  // макс. точок у сліді
+
+/* група слідів живе всередині #vg, бо саме він має transform мапи.
+   buildVector() чистить #vg, тому шар щоразу створюємо заново за потреби */
+function trailLayer(){
+  const vg = $('#vg'); if(!vg) return null;
+  let g = vg.querySelector('#trails');
+  if(!g){
+    g = document.createElementNS(SVG_NS, 'g');
+    g.setAttribute('id', 'trails');
+    g.setAttribute('fill', 'none');
+    g.setAttribute('pointer-events', 'none');
+    vg.appendChild(g);
+  } else if(g !== vg.lastElementChild){
+    vg.appendChild(g); // тримаємо слідами найвищий шар
+  }
+  return g;
+}
+
 function renderTrails(){
-  const g=$('#trails');if(!g)return;
-  if(!S.trails){g.innerHTML='';return;}
-  g.innerHTML=targets.filter(t=>!S.off.has(t.t.id)&&t.trail.length>1).map(t=>
-    '<path d="M'+t.trail.map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join('L')+
-    '" fill="none" stroke="'+t.t.c+'" stroke-opacity=".4" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>').join('');
+  const g = trailLayer(); if(!g) return;
+  if(!S.trails){ if(g.childNodes.length) g.innerHTML = ''; return; }
+
+  const live = targets.filter(t => !S.off.has(t.t.id) && t.trail.length > 1);
+
+  g.innerHTML = live.map(t => {
+    /* додаємо поточну позицію, щоб лінія не відставала від іконки */
+    const pts = t.trail.concat([w8(t.lo, t.la)]);
+    const d = 'M' + pts.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('L');
+    const c = trailColor(t.t);
+    const base = ' stroke="' + c + '" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"';
+    return '<path d="' + d + '"' + base + ' stroke-width="16" stroke-opacity=".14" style="filter:blur(5px)"/>'
+         + '<path d="' + d + '"' + base + ' stroke-width="7" stroke-opacity=".30" style="filter:blur(2px)"/>'
+         + '<path d="' + d + '"' + base + ' stroke-width="2.4" stroke-opacity=".95"/>';
+  }).join('');
 }
 
 const SPEEDUP=42;let last=performance.now();
@@ -538,13 +584,18 @@ function loop(now){
     tg.la+=Math.cos(r)*tg.sp*hrs/111;
     tg.lo+=Math.sin(r)*tg.sp*hrs/(111*Math.cos(tg.la*Math.PI/180));
     tg.hd+=Math.sin(now/2600+i)*0.028;
-    if(now-tg.lastTrail>1400){tg.lastTrail=now;tg.trail.push(w8(tg.lo,tg.la));if(tg.trail.length>14)tg.trail.shift();}
+    if(now - tg.lastTrail > TRAIL_MS){
+  tg.lastTrail = now;
+  tg.trail.push(w8(tg.lo, tg.la));
+  if(tg.trail.length > TRAIL_MAX) tg.trail.shift();
+}
     if(tg.lo<21||tg.lo>41.4||tg.la<43.4||tg.la>53.2||now-tg.born>210000){
       if(tg.el)tg.el.remove();targets.splice(i,1);
       if(Math.random()<0.5)log(tg.t,'<b>Ціль збита</b> · '+oblastAt(tg.lo,tg.la),tg.t.n+', супровід завершено','down');
     }
   }
   renderTargets();
+  renderTrails();
   requestAnimationFrame(loop);
 }
 

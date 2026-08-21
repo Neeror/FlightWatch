@@ -556,7 +556,7 @@ const trailColor = t => TRAIL_COLOR[t.id] || t.c || '#ef2b2b';
 
 const TRAIL_MS  = 120;   // як часто дописуємо точку
 const TRAIL_MAX = 320;   // страховка на кількість точок
-const TRAIL_KM  = 5;     // довжина хвоста в км, далі стирається
+const TRAIL_KM  = 35;     // довжина хвоста в км, далі стирається
 
 /* км між двома точками [x,y,lo,la] */
 function kmBetween(a, b){

@@ -464,16 +464,33 @@ const DIRS=['північний','північно-східний','східни
 const dirName=h=>DIRS[Math.round((((h%360)+360)%360)/45)%8];
 
 function spawn(quiet){
-  const t=pick(TYPES);let lo,la,hd,r=Math.random();
+  const t=pick(TYPES);
+  let lo,la,hd,r=Math.random();
   if(t.role==='avia'||t.id==='kab'||t.id==='fpv'||t.id==='molnia'){
     const edge=occRings[0]?.length ? occRings[0] : SPAWN_EDGE;
     const f=edge[(Math.random()*edge.length)|0];
     lo=f[0]+rnd(0.3,1.5);la=f[1]+rnd(-0.5,0.5);hd=rnd(235,305);
-  }else if(r<0.42){lo=rnd(30.4,39.6);la=52.5;hd=rnd(150,215);}
-  else if(r<0.76){lo=40.4;la=rnd(47.8,51.6);hd=rnd(230,292);}
-  else{lo=rnd(30.4,36.6);la=44.3;hd=rnd(340,395)%360;}
-  const tg={t,lo,la,hd,sp:rnd(t.sp[0],t.sp[1]),alt:Math.round(rnd(t.alt[0],t.alt[1])/50)*50,
-    born:performance.now(),trail:[w8(lo,la)],lastTrail:0,el:null};
+  }else if(r<0.42){
+    lo=rnd(30.4,39.6);
+    la=52.5;
+    hd=rnd(150,215);
+  }
+  else if(r<0.76){
+    lo=40.4;
+    la=rnd(47.8,51.6);
+    hd=rnd(230,292);
+  }
+  else{
+    lo=rnd(30.4,36.6);
+    la=44.3;
+    hd=rnd(340,395)%360;
+  }
+  const tg={
+    t,lo,la,hd,sp:rnd(t.sp[0],t.sp[1]),
+    alt:Math.round(rnd(t.alt[0],t.alt[1])/50)*50,
+    born:performance.now(),
+    trail:[[...w8(lo, la), lo, la]], lastTrail:0, el:null
+  };
   targets.push(tg);
   if(!quiet){
     const dst=near(lo+Math.sin(hd*Math.PI/180)*2.4,la+Math.cos(hd*Math.PI/180)*2.4,CITY);
@@ -537,8 +554,26 @@ const TRAIL_COLOR = {
 };
 const trailColor = t => TRAIL_COLOR[t.id] || t.c || '#ef2b2b';
 
-const TRAIL_MS = 450;   // як часто дописуємо точку
-const TRAIL_MAX = 320;  // макс. точок у сліді
+const TRAIL_MS  = 120;   // як часто дописуємо точку
+const TRAIL_MAX = 320;   // страховка на кількість точок
+const TRAIL_KM  = 5;     // довжина хвоста в км, далі стирається
+
+/* км між двома точками [x,y,lo,la] */
+function kmBetween(a, b){
+  const la = (a[3] + b[3]) / 2 * Math.PI / 180;
+  const dx = (a[2] - b[2]) * 111.32 * Math.cos(la);
+  const dy = (a[3] - b[3]) * 110.57;
+  return Math.hypot(dx, dy);
+}
+
+/* лишаємо тільки останні TRAIL_KM км шляху */
+function trimTrail(tr){
+  let acc = 0;
+  for(let i = tr.length - 1; i > 0; i--){
+    acc += kmBetween(tr[i], tr[i - 1]);
+    if(acc >= TRAIL_KM){ tr.splice(0, i); return; }
+  }
+}
 
 /* група слідів живе всередині #vg, бо саме він має transform мапи.
    buildVector() чистить #vg, тому шар щоразу створюємо заново за потреби */
@@ -586,7 +621,8 @@ function loop(now){
     tg.hd+=Math.sin(now/2600+i)*0.028;
     if(now - tg.lastTrail > TRAIL_MS){
   tg.lastTrail = now;
-  tg.trail.push(w8(tg.lo, tg.la));
+  tg.trail.push([...w8(tg.lo, tg.la), tg.lo, tg.la]);
+  trimTrail(tg.trail);
   if(tg.trail.length > TRAIL_MAX) tg.trail.shift();
 }
     if(tg.lo<21||tg.lo>41.4||tg.la<43.4||tg.la>53.2||now-tg.born>210000){

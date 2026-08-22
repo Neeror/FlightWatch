@@ -380,3 +380,18 @@ dialog[open]{animation:lift .38s var(--e-out)}
 #marks .tgt.open .tag {
   display: flex;
 }
+/* ── watermark ─────────────────────────── */
+.wm{
+  position:absolute; inset:0;
+  z-index: 6;                 /* над плитками й векторами, під цілями */
+  pointer-events:none;
+  background-image:url("/assets/voterka.svg"), url("/assets/voterka.svg");
+  background-size:230px 68px, 230px 68px;
+  background-position:0 0, 115px 34px;   /* друга сітка зі зсувом = шахматка */
+  background-repeat:repeat;
+  mix-blend-mode:multiply;
+  opacity:.85;
+}
+@media (max-width:560px){
+  .wm{background-size:150px 45px,150px 45px;background-position:0 0,75px 22px}
+}

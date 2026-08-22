@@ -1,3 +1,5 @@
+import { DurableObject } from 'cloudflare:workers';
+
 const enc = new TextEncoder();
 
 const b64u = (b) => btoa(String.fromCharCode(...new Uint8Array(b)))
@@ -94,7 +96,38 @@ export default {
       const data = env.ADMIN_SECRET ? await verifyToken(token, env.ADMIN_SECRET) : null;
       return data ? json({ ok: true, exp: data.exp }) : json({ ok: false }, 401);
     }
+    if (url.pathname === '/api/presence') {
+  if (!env.PRESENCE) return json({ error: 'presence not configured' }, 500);
+  if (request.headers.get('Upgrade') !== 'websocket') return json({ error: 'expected websocket' }, 426);
+  return env.PRESENCE.get(env.PRESENCE.idFromName('global')).fetch(request);
+}
+
+if (url.pathname === '/api/admin/online') {
+  const token = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!env.ADMIN_SECRET || !await verifyToken(token, env.ADMIN_SECRET)) return json({ ok: false }, 401);
+  if (!env.PRESENCE) return json({ error: 'presence not configured' }, 500);
+  const r = await env.PRESENCE.get(env.PRESENCE.idFromName('global')).fetch('https://presence/count');
+  return json(await r.json());
+}
 
     return env.ASSETS.fetch(request);
   },
 };
+
+export class Presence extends DurableObject {
+  async fetch(request) {
+    if (new URL(request.url).pathname === '/count') return json({ online: this.online() });
+    const [client, server] = Object.values(new WebSocketPair());
+    this.ctx.acceptWebSocket(server);   // hibernation: не жере CPU між подіями
+    this.push();
+    return new Response(null, { status: 101, webSocket: client });
+  }
+  online() { return this.ctx.getWebSockets().filter((ws) => ws.readyState === 1).length; }
+  push() {
+    const msg = JSON.stringify({ type: 'online', online: this.online() });
+    for (const ws of this.ctx.getWebSockets()) { try { ws.send(msg); } catch {} }
+  }
+  webSocketMessage(ws) { ws.send(JSON.stringify({ type: 'online', online: this.online() })); }
+  webSocketClose() { this.push(); }
+  webSocketError() { this.push(); }
+}

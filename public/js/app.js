@@ -863,7 +863,7 @@ document.addEventListener('click',e=>{
   const tab=e.target.closest('.tab');
   if(tab){$$('.tab').forEach(t=>t.setAttribute('aria-selected',String(t===tab)));
     $$('.pane').forEach(p=>p.toggleAttribute('data-on',p.dataset.pane===tab.dataset.pane));
-    $('#rail').classList.add('tall');return;}
+    return;}
   const sw=e.target.closest('.sw');
   if(sw){S[sw.dataset.p]=!S[sw.dataset.p];sync();if(sw.dataset.p==='sound'&&S.sound)beep(440);return;}
   const chk=e.target.closest('.chk');
@@ -873,7 +873,6 @@ document.addEventListener('click',e=>{
   if(e.target.closest('#zin')){zoomAt(1);return;}
   if(e.target.closest('#zout')){zoomAt(-1);return;}
   if(e.target.closest('#home')){flyTo(48.55,31.4,6.1);return;}
-  if(e.target.closest('#handle')){$('#rail').classList.toggle('tall');return;}
   if(e.target.closest('#openSupport')){$('#dSupport').showModal();return;}
   if(e.target.closest('#closeSupport')){$('#dSupport').close();return;}
   const cp=e.target.closest('#copyCard');

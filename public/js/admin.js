@@ -61,6 +61,15 @@
     bar.innerHTML = `<i></i><span>АДМІН</span><button type="button">Вийти</button>`;
     bar.querySelector('button').onclick = leave;
     document.body.appendChild(bar);
+    const live = document.createElement('span');
+    live.className = 'fw-online';
+    live.textContent = '— онлайн';
+    bar.insertBefore(live, bar.querySelector('button'));
+    const set = (n) => { live.textContent = n + ' онлайн'; };
+    document.addEventListener('fw:online', (e) => set(e.detail));
+    if (window.FW?.online != null) set(window.FW.online);
+    fetch('/api/admin/online', { headers: { Authorization: 'Bearer ' + stored()?.token } })
+       .then((r) => r.ok && r.json()).then((d) => d && set(d.online)).catch(() => {});
   }
 
   function leave() {

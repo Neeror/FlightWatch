@@ -382,16 +382,17 @@ dialog[open]{animation:lift .38s var(--e-out)}
 }
 /* ── watermark ─────────────────────────── */
 .wm{
-  position:absolute; inset:0;
-  z-index: 6;                 /* над плитками й векторами, під цілями */
+  position:absolute; inset:-50%;          /* запас, щоб поворот не оголив кути */
+  z-index:3;
   pointer-events:none;
+  transform:rotate(-45deg);
   background-image:url("/assets/voterka.svg"), url("/assets/voterka.svg");
-  background-size:230px 68px, 230px 68px;
-  background-position:0 0, 115px 34px;   /* друга сітка зі зсувом = шахматка */
+  background-size:800px 238px, 800px 238px;
+  background-position:0 0, 400px 119px;   /* зсув = шахматка */
   background-repeat:repeat;
   mix-blend-mode:multiply;
   opacity:.85;
 }
 @media (max-width:560px){
-  .wm{background-size:150px 45px,150px 45px;background-position:0 0,75px 22px}
+  .wm{background-size:480px 143px,480px 143px;background-position:0 0,240px 71px}
 }

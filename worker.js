@@ -122,7 +122,7 @@ export class Presence extends DurableObject {
     this.push();
     return new Response(null, { status: 101, webSocket: client });
   }
-  online() { return this.ctx.getWebSockets().filter((ws) => ws.readyState === 1).length; }
+  online() { return this.ctx.getWebSockets().length; }
   push() {
     const msg = JSON.stringify({ type: 'online', online: this.online() });
     for (const ws of this.ctx.getWebSockets()) { try { ws.send(msg); } catch {} }

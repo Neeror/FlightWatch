@@ -32,9 +32,8 @@
   .fw-gate .no{border:1px solid var(--line,#e2e8f0);color:var(--ink-2,#475569);background:none}
   .fw-gate .yes{border:0;background:#2563eb;color:#fff}
   .fw-gate .yes[disabled]{opacity:.6}
-  .fw-adminbar{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:1500;
-    display:flex;align-items:center;gap:11px;padding:7px 8px 7px 14px;border-radius:99px;
-    background:oklch(0.225 0.014 55/.94);color:#fff;font-size:.6875rem;font-weight:800;letter-spacing:.1em}
+  .fw-adminbar{display:flex;align-items:center;gap:9px;flex:none;padding:4px 6px 4px 12px;border-radius:99px;
+ background:oklch(0.225 0.014 55/.94);color:#fff;font-size:.6875rem;font-weight:800;letter-spacing:.1em}
   .fw-adminbar i{width:8px;height:8px;border-radius:50%;background:#22c55e}
   .fw-adminbar button{color:#fff;font-size:.625rem;font-weight:700;letter-spacing:.06em;border:0;
     background:oklch(1 0 0/.15);padding:5px 11px;border-radius:99px;cursor:pointer}
@@ -60,7 +59,8 @@
     bar.className = 'fw-adminbar';
     bar.innerHTML = `<i></i><span>АДМІН</span><button type="button">Вийти</button>`;
     bar.querySelector('button').onclick = leave;
-    document.body.appendChild(bar);
+    const host = document.querySelector('.bar');
+    if (host) host.insertBefore(bar, host.querySelector('.stamp')); else document.body.appendChild(bar);
     const live = document.createElement('span');
     live.className = 'fw-online';
     live.textContent = '— онлайн';

@@ -28,19 +28,15 @@
         <h1>Flight Watch</h1>
         <p>онлайн мапа цілей · <a href="https://t.me/flightwatch" target="_blank" rel="noopener">@flightwatch</a></p>
       </div>
-      <div class="live"><i></i><span>Ефір</span></div>
     </div>
 
     <div class="tabs" role="tablist">
-      <button class="tab" role="tab" aria-selected="true" data-pane="feed">Ефір</button>
-      <button class="tab" role="tab" aria-selected="false" data-pane="alarms" data-hot="false">Тривоги <b id="tabN">0</b></button>
+      <button class="tab" role="tab" aria-selected="true" data-pane="alarms" data-hot="false">Тривоги <b id="tabN">0</b></button>
       <button class="tab" role="tab" aria-selected="false" data-pane="set">Налаштування</button>
     </div>
 
     <div class="panes">
-      <section class="pane" data-pane="feed" data-on><ul class="feed" id="feed"></ul></section>
-
-      <section class="pane" data-pane="alarms">
+      <section class="pane" data-pane="alarms" data-on>
         <div class="ahead">
           <div>
             <span class="eyebrow">Повітряна тривога</span>
@@ -130,7 +126,8 @@
     <div class="mapwrap" id="mapwrap">
       <div id="levels"></div>
       <svg id="vec"><g id="vg"></g></svg>
-      <div id="marks"></div>
+      <canvas id="marks" aria-label="Повітряні цілі"></canvas>
+      <div class="target-tip" id="targetTip" hidden><b></b></div>
       <div class="wm" aria-hidden="true"></div>
 
       <div class="fl-tl">
@@ -175,18 +172,13 @@
       </div></div>
     </div>
 
-    <div class="ticker">
-      <span class="bg">Ефір</span>
-      <div class="roll" id="roll"></div>
-      <span class="disc">Дані з відкритих джерел. Не є офіційним оповіщенням.</span>
-    </div>
   </main>
 </div>
 
 <dialog id="dSupport"><div class="sheet">
   <button class="x" id="closeSupport" aria-label="Закрити"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
   <h2><svg width="21" height="21" viewBox="0 0 24 24" fill="oklch(0.545 0.212 27)"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg> Підтримка проєкту</h2>
-  <p>Мапа Flight Watch працює 24/7, але за нею стоять сервери та щоденна ручна робота операторів. Ваш внесок тримає її в ефірі й дає змогу розвивати сервіс далі.</p>
+  <p>Мапа Flight Watch працює 24/7, але за нею стоять сервери та щоденна ручна робота операторів. Ваш внесок підтримує роботу мапи й дає змогу розвивати сервіс далі.</p>
   <div class="pay">
     <div class="k"><code>4874 1000 3088 4673</code><button class="cp" id="copyCard">Копіювати</button></div>
     <div class="jar">Банка: 

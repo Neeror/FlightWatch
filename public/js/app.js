@@ -1,15 +1,12 @@
 import {
   fetchAlerts,
-  startPolling,
   getAlerts,
   getError,
   raionStatus,
   oblastStatus,
-  oblastHasAnyAlarm,
   alarmSummary,
   diffAlarms,
-  GEO_TO_ALERT,
-  OBLAST_ORDER
+  GEO_TO_ALERT
 } from './alerts.js';
 
 (async()=>{
@@ -52,12 +49,6 @@ const OBL=[['Волинська область',25.30,51.15],['Рівненсь�
  ['Хмельницька область',27.00,49.50],['Тернопільська область',25.60,49.40],['Львівська область',23.80,49.70],
  ['Івано-Франківська область',24.70,48.60],['Закарпатська область',23.30,48.40],['Чернівецька область',26.00,48.30]];
 const CRN='Автономна Республіка Крим';
-const CITY=[['Київ',30.52,50.45],['Харків',36.23,49.99],['Одеса',30.73,46.48],['Дніпро',35.05,48.47],
- ['Львів',24.03,49.84],['Запоріжжя',35.14,47.84],['Миколаїв',31.99,46.98],['Суми',34.80,50.91],
- ['Чернігів',31.29,51.50],['Полтава',34.55,49.59],['Вінниця',28.47,49.23],['Житомир',28.66,50.25],
- ['Луцьк',25.34,50.75],['Херсон',32.62,46.64],['Кривий Ріг',33.39,47.91],['Черкаси',32.06,49.44],
- ['Хмельницький',26.99,49.42],['Краматорськ',37.55,48.74],['Мелітополь',35.37,46.84],
- ['Кропивницький',32.26,48.51],['Івано-Франківськ',24.71,48.92],['Ужгород',22.30,48.62],['Ізмаїл',28.84,45.35]];
 const ADM1_ISO_TO_ALERT={
  'UA-05':'Вінницька область','UA-07':'Волинська область','UA-09':'Луганська область',
  'UA-12':'Дніпропетровська область','UA-14':'Донецька область','UA-18':'Житомирська область',
@@ -85,12 +76,10 @@ const TYPES=[
   {id:'ball',cat:'РАКЕТИ',n:'Балістика',f:'Iskander.svg',c:'#6b6b3a',role:'msl',sp:[2400,3800],alt:[9000,45000]},
   {id:'kab',cat:'ІНШЕ',n:'КАБ',f:'KAB.svg',c:'#5d6b48',role:'kab',sp:[600,800],alt:[1500,6000]}
 ];
-const T=Object.fromEntries(TYPES.map(t=>[t.id,t]));
 const iconURL=t=>'/' + t.f.split('/').map(encodeURIComponent).join('/');
 const ROLE={uav:['БпЛА','#3a3a3a'],msl:['Ракети','#d13a2a'],kab:['КАБ','#5d6b48']};
 
-/* alarmNames тепер = повні офіційні назви з alerts.in.ua */
-let adm2=[], alarmNames=[...OBLAST_ORDER], occRings=[], mapDataReady=false;
+let adm2=[],occRings=[],mapDataReady=false;
 let uaBorderPath='', adm1=[];
 
 const SPAWN_EDGE=[
@@ -98,9 +87,6 @@ const SPAWN_EDGE=[
   [37.3,48.2],[36.7,47.8],[35.8,47.6],
   [34.9,47.4],[33.9,47.1],[32.9,46.6]
 ];
-
-/* Відстеження попереднього стану для логу в ефірі */
-
 
 /* ═════ проєкція ═════ */
 const TS=256,Z8=8;
@@ -115,48 +101,66 @@ const DEF={size:1,labels:true,alarmFill:true,frontLine:true,dim:true,sound:false
 const S={...DEF,off:new Set()};
 const view={lat:48.55,lon:31.4,zoom:6.1};
 const MINZ=5,MAXZ=11;
-let base='osm',tileErr=0,targets=[],levels=new Map(),cells=new Map();
+let base='osm',tileErr=0,targets=[],levels=new Map(),cells=new Map(),selectedTarget=null,summaryDirty=true;
 
 const $=q=>document.querySelector(q),$$=q=>[...document.querySelectorAll(q)];
 const rnd=(a,b)=>a+Math.random()*(b-a);
 const pick=a=>a[(Math.random()*a.length)|0];
 const pad=n=>String(n|0).padStart(2,'0');
 const hhmm=d=>pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
+const mapSize={w:1,h:1};
+const targetCanvas=$('#marks');
+const targetCtx=targetCanvas.getContext('2d',{alpha:true,desynchronized:true});
+const LOW_POWER=matchMedia('(pointer:coarse)').matches||
+  (navigator.hardwareConcurrency||8)<=4||(navigator.deviceMemory||8)<=4;
+const TARGET_FRAME_MS=1000/(LOW_POWER?20:30);
+const TARGET_DPR_CAP=LOW_POWER?1.25:1.75;
+let targetDpr=1;
 
 function tileURL(z,x,y){
   const n=2**z;x=((x%n)+n)%n;
   if(base==='osm') return 'https://tile.openstreetmap.org/'+z+'/'+x+'/'+y+'.png';
   const s='abcd'[(x+y)%4];
-  return 'https://'+s+'.basemaps.cartocdn.com/light_all/'+z+'/'+x+'/'+y+(devicePixelRatio>1.4?'@2x':'')+'.png';
+  return 'https://'+s+'.basemaps.cartocdn.com/light_all/'+z+'/'+x+'/'+y+(!LOW_POWER&&devicePixelRatio>1.4?'@2x':'')+'.png';
 }
 
 /* ═════ рушій мапи ═════ */
-function size(){const e=$('#mapwrap');return [e.clientWidth,e.clientHeight];}
+function measureMap(){
+  const e=$('#mapwrap');
+  mapSize.w=Math.max(1,e.clientWidth);mapSize.h=Math.max(1,e.clientHeight);
+  targetDpr=Math.min(devicePixelRatio||1,TARGET_DPR_CAP);
+  const w=Math.round(mapSize.w*targetDpr),h=Math.round(mapSize.h*targetDpr);
+  if(targetCanvas.width!==w||targetCanvas.height!==h){
+    targetCanvas.width=w;targetCanvas.height=h;
+    targetCanvas.style.width=mapSize.w+'px';targetCanvas.style.height=mapSize.h+'px';
+  }
+}
+function size(){return[mapSize.w,mapSize.h];}
 function paneT(z){const [w,h]=size(),s=2**(view.zoom-z);
   return 'translate('+w/2+'px,'+h/2+'px) scale('+s+') translate('+(-lon2x(view.lon,z))+'px,'+(-lat2y(view.lat,z))+'px)';}
-  function targetAt(px,py){
- const R=Math.max(20,22*S.size); let best=null,bd=R*R;
- for(const tg of targets){
-  if(S.off.has(tg.t.id))continue;
-  const [x,y]=screenOf(tg.lo,tg.la), d=(x-px)**2+(y-py)**2;
-  if(d<bd){bd=d;best=tg;}
- }
- return best;
+function targetAt(px,py){
+  const R=Math.max(20,22*S.size),scale=2**(view.zoom-Z8);
+  const ox=mapSize.w/2-lon2x(view.lon,Z8)*scale,oy=mapSize.h/2-lat2y(view.lat,Z8)*scale;
+  let best=null,bd=R*R;
+  for(const tg of targets){
+    if(S.off.has(tg.t.id))continue;
+    const x=tg.wx*scale+ox,y=tg.wy*scale+oy,d=(x-px)**2+(y-py)**2;
+    if(d<bd){bd=d;best=tg;}
+  }
+  return best;
 }
 (()=>{
- const wrap=$('#mapwrap'); let sx=0,sy=0,moved=false;
- wrap.addEventListener('pointerdown',e=>{sx=e.clientX;sy=e.clientY;moved=false},true);
- wrap.addEventListener('pointermove',e=>{if(Math.hypot(e.clientX-sx,e.clientY-sy)>6)moved=true},true);
- wrap.addEventListener('pointerup',e=>{
-  if(moved||e.button)return;                       // це був драг, не тап
-  const r=wrap.getBoundingClientRect();
-  const tg=targetAt(e.clientX-r.left,e.clientY-r.top);
-  for(const o of targets) if(o!==tg&&o.el) o.el.classList.remove('open');
-  if(tg&&tg.el) tg.el.classList.toggle('open');
- },true);
+  const wrap=$('#mapwrap');let sx=0,sy=0,moved=false;
+  wrap.addEventListener('pointerdown',e=>{sx=e.clientX;sy=e.clientY;moved=false},true);
+  wrap.addEventListener('pointermove',e=>{if(Math.hypot(e.clientX-sx,e.clientY-sy)>6)moved=true},true);
+  wrap.addEventListener('pointerup',e=>{
+    if(moved||e.button||e.target.closest('.pill'))return;
+    const r=wrap.getBoundingClientRect();
+    const tg=targetAt(e.clientX-r.left,e.clientY-r.top);
+    selectedTarget=tg===selectedTarget?null:tg;
+    renderTargets(true);
+  },true);
 })();
-function screenOf(lo,la){const [w,h]=size(),z=view.zoom;
-  return [lon2x(lo,z)-lon2x(view.lon,z)+w/2, lat2y(la,z)-lat2y(view.lat,z)+h/2];}
 function latlngAt(px,py){const [w,h]=size(),z=view.zoom;
   return [y2lat(lat2y(view.lat,z)+py-h/2,z), x2lon(lon2x(view.lon,z)+px-w/2,z)];}
 
@@ -173,9 +177,22 @@ function clampView(){
   view.lon=x2lon(cx,z); view.lat=y2lat(cy,z);
 }
 
+function positionMapLayers(){
+  const [w,h]=size();
+  for(const [z,lv] of levels)lv.el.style.transform=paneT(z);
+  const s=2**(view.zoom-Z8),x=w/2-lon2x(view.lon,Z8)*s,y=h/2-lat2y(view.lat,Z8)*s;
+  $('#vg').style.transform='matrix('+s+',0,0,'+s+','+x+','+y+')';
+  scaleBar();
+}
 
+let tileDrawTimer=0;
+function queueTileDraw(){
+  if(tileDrawTimer)return;
+  tileDrawTimer=setTimeout(()=>{tileDrawTimer=0;drawTiles();},90);
+}
 function drawTiles(){
-  clampView()
+  if(tileDrawTimer){clearTimeout(tileDrawTimer);tileDrawTimer=0;}
+  clampView();
   const tz=Math.max(MINZ,Math.min(MAXZ,Math.round(view.zoom)));
   const [w,h]=size(),s=2**(view.zoom-tz);
   let L=levels.get(tz);
@@ -198,19 +215,18 @@ function drawTiles(){
   }
   for(const [k,img] of L.tiles) if(!need.has(k)){img.remove();L.tiles.delete(k);}
   for(const [z,lv] of levels){
-    lv.el.style.transform=paneT(z);
     if(z!==tz){lv.stale=(lv.stale||0)+1;if(lv.stale>2){lv.el.remove();levels.delete(z);}}
     else lv.stale=0;
   }
-  $('#vg').setAttribute('transform','translate('+w/2+','+h/2+') scale('+2**(view.zoom-Z8)+') translate('+(-lon2x(view.lon,Z8))+','+(-lat2y(view.lat,Z8))+')');
-  scaleBar();
+  positionMapLayers();
 }
 function scaleBar(){
   const mpp=156543.03392*Math.cos(view.lat*Math.PI/180)/2**view.zoom;
   const target=130*mpp,steps=[1,2,5,10,20,50,100,200,500,1000];
   const km=steps.find(v=>v*1000>=target*0.55)||1000;
-  $('#scBar').style.width=Math.round(km*1000/mpp)+'px';
-  $('#scTxt').textContent=km+' км';
+  const width=Math.round(km*1000/mpp)+'px',text=km+' км';
+  if($('#scBar').style.width!==width)$('#scBar').style.width=width;
+  if($('#scTxt').textContent!==text)$('#scTxt').textContent=text;
 }
 
 /* ═════ векторний шар ═════ */
@@ -454,10 +470,24 @@ function paintAlarms(){
 }
 
 /* ═════ цілі ═════ */
-function near(lo,la,arr){let b=arr[0],d=1e9;for(const c of arr){const k=(c[1]-lo)**2*0.44+(c[2]-la)**2;if(k<d){d=k;b=c;}}return b;}
-function oblastAt(lo,la){for(const a of adm2)if(insideGeom(lo,la,a.g))return a.oblastUa||a.name;if(la<46.3&&lo>32.4&&lo<36.7)return CRN;return near(lo,la,OBL)[0];}
-const DIRS=['північний','північно-східний','східний','південно-східний','південний','південно-західний','західний','північно-західний'];
-const dirName=h=>DIRS[Math.round((((h%360)+360)%360)/45)%8];
+const TARGET_ICON_PX=128;
+const targetIcons=new Map();
+
+async function loadTargetIcons(){
+  await Promise.all(TYPES.map(t=>new Promise(resolve=>{
+    const img=new Image();img.decoding='async';
+    img.onload=()=>{
+      const c=document.createElement('canvas'),ctx=c.getContext('2d',{alpha:true});
+      c.width=TARGET_ICON_PX;c.height=TARGET_ICON_PX;
+      const scale=Math.min((TARGET_ICON_PX-4)/img.naturalWidth,(TARGET_ICON_PX-4)/img.naturalHeight);
+      const w=img.naturalWidth*scale,h=img.naturalHeight*scale;
+      ctx.drawImage(img,(TARGET_ICON_PX-w)/2,(TARGET_ICON_PX-h)/2,w,h);
+      targetIcons.set(t.id,c);resolve();
+    };
+    img.onerror=()=>{console.warn('[targets] Не вдалося завантажити',t.f);resolve();};
+    img.src=iconURL(t);
+  })));
+}
 
 function spawn(quiet){
   const t=pick(TYPES);
@@ -484,84 +514,93 @@ function spawn(quiet){
   const tg={
     t,lo,la,hd,sp:rnd(t.sp[0],t.sp[1]),
     alt:Math.round(rnd(t.alt[0],t.alt[1])/50)*50,
-    born:performance.now(),el:null
+    born:performance.now(),
+    wx:lon2x(lo,Z8),wy:lat2y(la,Z8),
+    cos:Math.cos(hd*Math.PI/180),sin:Math.sin(hd*Math.PI/180)
   };
-  targets.push(tg);
-  if(!quiet){
-    const dst=near(lo+Math.sin(hd*Math.PI/180)*2.4,la+Math.cos(hd*Math.PI/180)*2.4,CITY);
-    log(t,'<b>'+t.n+'</b> · '+oblastAt(lo,la)+', курс '+dirName(hd),'орієнтовно на '+dst[0]);
-    if(S.sound&&t.role==='msl')beep(t.id==='ball'?520:380);
-  }
+  targets.push(tg);summaryDirty=true;
+  if(!quiet&&S.sound&&t.role==='msl')beep(t.id==='ball'?520:380);
 }
-function mkEl(tg){
-  const d=document.createElement('div');
-  d.className='tgt fresh';
-  d.style.setProperty('--tc',tg.t.c);
 
-  d.innerHTML=
-    '<img class="ico" src="'+iconURL(tg.t)+'" alt="">'+
-    '<div class="tag"><b>'+tg.t.n+'</b><em></em></div>';
-
-  $('#marks').appendChild(d);
-
-  tg.el=d;
-  tg.ico=d.querySelector('.ico');
-  tg.tag=d.querySelector('.tag');
-  tg.em=d.querySelector('em');
-
-  d.style.pointerEvents='none';
-  setTimeout(()=>d.classList.remove('fresh'),650);
-}
-function renderTargets(){
+function renderTargetSummary(){
+  if(!summaryDirty)return;
   let n=0,by={uav:0,msl:0,kab:0};
   for(const tg of targets){
-    if(!tg.el)mkEl(tg);
-    if(S.off.has(tg.t.id)){tg.el.style.display='none';continue;}
-    tg.el.style.display='';n++;by[tg.t.role]++;
-    const [x,y]=screenOf(tg.lo,tg.la);
-    tg.el.style.transform='translate3d('+x.toFixed(1)+'px,'+y.toFixed(1)+'px,0)';
-    const px=Math.round(30*S.size);
-    tg.ico.style.width=px+'px';tg.ico.style.height=px+'px';
-    tg.ico.style.transform='translate(-50%,-50%) rotate('+tg.hd.toFixed(1)+'deg)';
-    const open=tg.el.classList.contains('open');
-    tg.tag.style.display=open?'flex':'none';
-    tg.tag.style.left=(px*0.55+5)+'px';
-    tg.tag.style.top='-11px';
-    tg.em.style.display='none';
+    if(S.off.has(tg.t.id))continue;
+    n++;by[tg.t.role]++;
   }
-  $('#totN').textContent=n;
-  $('#chips').innerHTML=Object.keys(ROLE).map(r=>
+  if($('#totN').textContent!==String(n))$('#totN').textContent=n;
+  const html=Object.keys(ROLE).map(r=>
     '<span class="chip"><i style="background:'+ROLE[r][1]+'"></i>'+ROLE[r][0]+' <b>'+by[r]+'</b></span>').join('');
+  if($('#chips').innerHTML!==html)$('#chips').innerHTML=html;
+  summaryDirty=false;
 }
 
-const SPEEDUP=42;let last=performance.now();
+function paintTargets(){
+  renderTargetSummary();
+  targetCtx.setTransform(1,0,0,1,0,0);
+  targetCtx.clearRect(0,0,targetCanvas.width,targetCanvas.height);
+  targetCtx.imageSmoothingEnabled=true;
+  targetCtx.imageSmoothingQuality='medium';
+
+  const scale=2**(view.zoom-Z8);
+  const ox=mapSize.w/2-lon2x(view.lon,Z8)*scale,oy=mapSize.h/2-lat2y(view.lat,Z8)*scale;
+  const px=Math.round(30*S.size),margin=px;
+  let selectedX=0,selectedY=0,selectedVisible=false;
+
+  for(const tg of targets){
+    if(S.off.has(tg.t.id))continue;
+    const x=tg.wx*scale+ox,y=tg.wy*scale+oy;
+    if(tg===selectedTarget){selectedX=x;selectedY=y;selectedVisible=true;}
+    if(x<-margin||x>mapSize.w+margin||y<-margin||y>mapSize.h+margin)continue;
+    const icon=targetIcons.get(tg.t.id);if(!icon)continue;
+    const cos=tg.cos*targetDpr,sin=tg.sin*targetDpr;
+    targetCtx.setTransform(cos,sin,-sin,cos,x*targetDpr,y*targetDpr);
+    targetCtx.drawImage(icon,-px/2,-px/2,px,px);
+  }
+
+  targetCtx.setTransform(1,0,0,1,0,0);
+  const tip=$('#targetTip');
+  if(!S.labels||!selectedTarget||S.off.has(selectedTarget.t.id)||!selectedVisible||
+     selectedX<-margin||selectedX>mapSize.w+margin||selectedY<-margin||selectedY>mapSize.h+margin){
+    tip.hidden=true;
+  }else{
+    const label=tip.querySelector('b');if(label.textContent!==selectedTarget.t.n)label.textContent=selectedTarget.t.n;
+    tip.style.setProperty('--tc',selectedTarget.t.c);
+    tip.style.transform='translate3d('+(selectedX+px*.55+5).toFixed(1)+'px,'+(selectedY-11).toFixed(1)+'px,0)';
+    tip.hidden=false;
+  }
+}
+
+let lastTargetPaint=0,targetPaintTimer=0;
+function renderTargets(force=false){
+  const now=performance.now(),wait=TARGET_FRAME_MS-(now-lastTargetPaint);
+  if(!force&&wait>1){
+    if(!targetPaintTimer)targetPaintTimer=setTimeout(()=>{targetPaintTimer=0;renderTargets(true);},wait);
+    return;
+  }
+  if(targetPaintTimer){clearTimeout(targetPaintTimer);targetPaintTimer=0;}
+  lastTargetPaint=now;paintTargets();
+}
+
+const SPEEDUP=42;let last=performance.now(),lastStep=0;
 function loop(now){
-  const dt=Math.min(now-last,150);last=now;
+  requestAnimationFrame(loop);
+  if(now-lastStep<TARGET_FRAME_MS)return;
+  const dt=Math.min(now-last,250);last=now;lastStep=now;
   const hrs=dt/3600000*SPEEDUP;
   for(let i=targets.length-1;i>=0;i--){
-    const tg=targets[i],r=tg.hd*Math.PI/180;
-    tg.la+=Math.cos(r)*tg.sp*hrs/111;
-    tg.lo+=Math.sin(r)*tg.sp*hrs/(111*Math.cos(tg.la*Math.PI/180));
-    tg.hd+=Math.sin(now/2600+i)*0.028;
+    const tg=targets[i],r=tg.hd*Math.PI/180,cos=Math.cos(r),sin=Math.sin(r);
+    tg.la+=cos*tg.sp*hrs/111;
+    tg.lo+=sin*tg.sp*hrs/(111*Math.cos(tg.la*Math.PI/180));
+    tg.hd+=Math.sin(now/2600+i)*0.028*(dt/16.667);
+    tg.wx=lon2x(tg.lo,Z8);tg.wy=lat2y(tg.la,Z8);tg.cos=cos;tg.sin=sin;
     if(tg.lo<21||tg.lo>41.4||tg.la<43.4||tg.la>53.2||now-tg.born>210000){
-      if(tg.el)tg.el.remove();targets.splice(i,1);
-      if(Math.random()<0.5)log(tg.t,'<b>Ціль збита</b> · '+oblastAt(tg.lo,tg.la),tg.t.n+', супровід завершено','down');
+      if(selectedTarget===tg)selectedTarget=null;
+      targets.splice(i,1);summaryDirty=true;
     }
   }
   renderTargets();
-  requestAnimationFrame(loop);
-}
-
-/* ═════ стрічка ═════ */
-function log(type,html,sub,kind){
-  const li=document.createElement('li');li.dataset.k=kind||'move';
-  const ico=type?'<img class="ic" src="'+iconURL(type)+'" alt="">'
-   :'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="'+(kind==='alarm'?'rgb(190,40,26)':'currentColor')+'" stroke-width="2.4" stroke-linecap="round"><path d="M12 3a6 6 0 0 0-6 6v4l-2 3h16l-2-3V9a6 6 0 0 0-6-6ZM10 20h4"/></svg>';
-  li.innerHTML='<time>'+hhmm(new Date())+'</time><div><div class="txt">'+ico+'<span>'+html+'</span></div>'+(sub?'<div class="sub">'+sub+'</div>':'')+'</div>';
-  const f=$('#feed'),em=f.querySelector('.empty');if(em)em.remove();
-  f.prepend(li);
-  while(f.children.length>45)f.lastElementChild.remove();
-  $('#roll').innerHTML='<span>'+hhmm(new Date())+' &nbsp;·&nbsp; '+html.replace(/<[^>]+>/g,'')+(sub?' · '+sub:'')+'</span>';
 }
 
 /* ═════ тривоги — реальні дані з alerts.in.ua ═════ */
@@ -661,19 +700,8 @@ async function pollAlerts(){
  if(err==='token'||err==='ratelimit')console.warn('[alerts]',err);
  }
 
- /* що почалось / скінчилось з минулого разу → у стрічку «Ефір» */
- const A=getAlerts();
- const {started,ended}=diffAlarms();
- const LVL={oblast:'на всю область',raion:'районний рівень',hromada:'громада',city:'місто'};
-
- for(const title of started){
- const a=A.get(title);
- log(null,'<b>Повітряна тривога</b> · '+esc(title),a?.notes||LVL[a?.level]||'','alarm');
- if(S.sound)beep(300);
- }
- for(const title of ended){
- log(null,'<b>Відбій тривоги</b> · '+esc(title),'','down');
- }
+  const {started}=diffAlarms();
+  if(S.sound&&started.length)beep(300);
 
  paintAlarms();
  renderAlarmPanel();
@@ -710,7 +738,8 @@ function sync(){
   $$('.chk').forEach(b=>b.setAttribute('aria-checked',String(!S.off.has(b.dataset.t))));
   $('#rSize').value=S.size;
   $('#vSize').textContent=S.size.toFixed(1).replace('.',',')+'×';
-  renderTargets();paintAlarms();
+  if(selectedTarget&&S.off.has(selectedTarget.t.id))selectedTarget=null;
+  summaryDirty=true;renderTargets(true);paintAlarms();
 }
 let toastT;
 function toast(m){const e=$('#toast');e.textContent=m;e.classList.add('on');
@@ -727,12 +756,13 @@ function flyTo(lat,lon,zoom){
   (function step(t){
     const k=Math.min(1,(t-t0)/D),p=1-Math.pow(1-k,4);
     view.lat=s.lat+(e.lat-s.lat)*p;view.lon=s.lon+(e.lon-s.lon)*p;view.zoom=s.zoom+(e.zoom-s.zoom)*p;
-    drawTiles();renderTargets();
-    if(k<1)requestAnimationFrame(step);
+    renderMapFrame();
+    if(k<1)requestAnimationFrame(step);else drawTiles();
   })(t0);
 }
 let redrawQueued=false;
-function redrawMap(){if(redrawQueued)return;redrawQueued=true;requestAnimationFrame(()=>{redrawQueued=false;drawTiles();renderTargets();});}
+function renderMapFrame(){clampView();positionMapLayers();renderTargets();queueTileDraw();}
+function redrawMap(){if(redrawQueued)return;redrawQueued=true;requestAnimationFrame(()=>{redrawQueued=false;renderMapFrame();});}
 function zoomAt(dz,px,py){
   const [w,h]=size();
   if(px==null){px=w/2;py=h/2;}
@@ -742,7 +772,7 @@ function zoomAt(dz,px,py){
   view.zoom=nz;
   view.lon=x2lon(lon2x(lo,nz)-(px-w/2),nz);
   view.lat=y2lat(lat2y(la,nz)-(py-h/2),nz);
-  drawTiles();renderTargets();
+  redrawMap();
 }
 
 (function(){
@@ -769,7 +799,7 @@ function zoomAt(dz,px,py){
       lastD=d;
     }
   });
-  const up=e=>{pts.delete(e.pointerId);if(pts.size<2)lastD=0;if(!pts.size)el.classList.remove('drag');};
+  const up=e=>{pts.delete(e.pointerId);if(pts.size<2)lastD=0;if(!pts.size){el.classList.remove('drag');drawTiles();renderTargets(true);}};
   el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
   el.addEventListener('wheel',e=>{e.preventDefault();const r=el.getBoundingClientRect();
     zoomAt(-e.deltaY*(e.deltaMode===1?0.05:0.0022),e.clientX-r.left,e.clientY-r.top);},{passive:false});
@@ -810,38 +840,29 @@ document.addEventListener('click',e=>{
   if(e.target.id==='dSupport')$('#dSupport').close();
 });
 $('#rSize').addEventListener('input',e=>{S.size=+e.target.value;
-  $('#vSize').textContent=S.size.toFixed(1).replace('.',',')+'×';renderTargets();});
+  $('#vSize').textContent=S.size.toFixed(1).replace('.',',')+'×';renderTargets(true);});
 
 /* ═════ СТАРТ ═════ */
-await loadMapData();
+measureMap();
+await Promise.all([loadMapData(),loadTargetIcons()]);
 
 buildTypes();
 buildVector();
 drawTiles();
 sync();
 
-$('#feed').innerHTML =
-  '<li class="empty">Очікування даних з каналу…</li>';
-
 /* Перший реальний запит тривог */
 await pollAlerts();
 
 for(let i = 0; i < 11; i++) spawn(true);
+renderTargets(true);
 
-[
-  ['shahed', 'Чернігівська обл., курс південний', 'орієнтовно на Київ'],
-  ['x101', 'Полтавська обл., курс західний', 'орієнтовно на Кременчук'],
-  ['ball', 'Харківська обл., пуск з півночі', 'швидкісна ціль'],
-  ['ball', 'Донецька обл., балістична ціль', 'швидкісна ціль']
-].forEach((a, i) => {
-  setTimeout(() => {
-    log(T[a[0]], '<b>' + T[a[0]].n + '</b> · ' + a[1], a[2]);
-  }, i * 60);
-});
-
-new ResizeObserver(() => {
-  drawTiles();
-  renderTargets();
+let resizeQueued=false;
+new ResizeObserver(()=>{
+  if(resizeQueued)return;resizeQueued=true;
+  requestAnimationFrame(()=>{
+    resizeQueued=false;measureMap();clampView();positionMapLayers();renderTargets(true);queueTileDraw();
+  });
 }).observe($('#mapwrap'));
 
 setInterval(() => {

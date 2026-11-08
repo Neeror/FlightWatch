@@ -14,24 +14,6 @@
 </head>
 <body>
 
-<!-- КАБ SVG — інлайн символ -->
-<svg style="display:none" aria-hidden="true">
-  <defs>
-    <symbol id="ic-kab2" viewBox="0 0 100 100">
-      <rect x="43" y="22" width="14" height="42" rx="5" fill="currentColor"/>
-      <path d="M50 6 L42 22 L58 22 Z" fill="currentColor"/>
-      <path d="M43 62 L30 83 L43 71 Z" fill="currentColor"/>
-      <path d="M57 62 L70 83 L57 71 Z" fill="currentColor"/>
-      <path d="M43 62 L36 80" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
-      <path d="M57 62 L64 80" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
-      <rect x="16" y="33" width="27" height="7" rx="3" fill="currentColor"/>
-      <rect x="57" y="33" width="27" height="7" rx="3" fill="currentColor"/>
-    </symbol>
-  </defs>
-</svg>
-
-<div id="icon-sprite" aria-hidden="true"></div>
-
 <div class="app">
   <aside class="rail" id="rail">
     <button class="handle" id="handle" aria-label="Розгорнути панель"><i></i></button>
@@ -86,11 +68,6 @@
             <div><div class="lbl">Показати тип повітряної цілі</div>
               <div class="hint">Підпис поруч із позначкою на мапі.</div></div>
             <div class="ctl"><button class="sw" role="switch" aria-checked="true" data-p="labels" aria-label="Показати тип цілі"></button></div>
-          </div>
-          <div class="row">
-            <div><div class="lbl">Сліди руху</div>
-              <div class="hint">Пройдений маршрут цілі за останні хвилини.</div></div>
-            <div class="ctl"><button class="sw" role="switch" aria-checked="true" data-p="trails" aria-label="Сліди руху"></button></div>
           </div>
         </div>
 
@@ -178,9 +155,9 @@
         <div class="pill legend">
           <span class="eyebrow">Умовні позначення</span>
           <ul>
-            <li><svg class="sw2" viewBox="0 0 100 100"><use href="#ic-shahed" width="100" height="100"/></svg>Ударний БпЛА</li>
-            <li><svg class="sw2" viewBox="0 0 100 100"><use href="#ic-x101" width="100" height="100"/></svg>Крилата ракета</li>
-            <li><svg class="sw2" viewBox="0 0 100 100"><use href="#ic-iskander" width="100" height="100"/></svg>Балістика</li>
+            <li><img class="sw2" src="/shahed.svg" alt="">Ударний БпЛА</li>
+            <li><img class="sw2" src="/x-101.svg" alt="">Крилата ракета</li>
+            <li><img class="sw2" src="/Iskander.svg" alt="">Балістика</li>
             <li><span class="box" style="background:oklch(0.545 0.212 27/.3);border:1px solid oklch(0.545 0.212 27/.6)"></span>Повітряна тривога</li>
             <li><span class="box" id="lgOcc"></span>Тимчасово окуповано</li>
           </ul>

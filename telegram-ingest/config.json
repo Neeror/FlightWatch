@@ -24,8 +24,8 @@
       "categories": ["fpv", "molniya", "kab", "recon"]
     },
     {
-      "id": "radar_zaporizhzhya",
-      "name": "Радар Запоріжжя",
+      "id": "operatyvnohlep",
+      "name": "Оперативно → by HLEP",
       "region": "zaporizhzhia",
       "mode": "filter",
       "categories": ["fpv", "molniya", "kab", "recon"]
@@ -36,12 +36,6 @@
       "region": "kharkiv",
       "mode": "filter",
       "categories": ["fpv", "molniya", "kab", "recon"]
-    },
-    {
-      "id": "ukraine_pyxx",
-      "name": "Повітряний простір | Напрямок ракет",
-      "mode": "filter",
-      "categories": ["shahed", "ballistic", "cruise", "recon"]
     },
 
     {
@@ -57,7 +51,8 @@
    { 
     "id": "StrategicaviationT", 
     "name": "Стратегічна авіація — бандеролі",
-    "mode": "filter", "categories": ["banderol"],
+    "mode": "filter",
+    "categories": ["banderol"],
     "takeReplies": true, 
     "takeEdits": true, 
     "takeStatusOnly": false },

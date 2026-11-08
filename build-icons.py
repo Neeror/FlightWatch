@@ -1,7 +1,16 @@
 import re, pathlib
 SPR = pathlib.Path("public/assets/icons.svg")
-MAP = {"ic-recon":"public/orion.svg", "ic-molniya":"public/Молнія.svg",
-       "ic-kab2":"public/Каб.svg", "ic-fpv":"public/ФПВ.svg", "ic-jet":"public/Герань-4.svg"}
+MAP = {
+    "ic-shahed": "public/shahed.svg",
+    "ic-jet": "public/Geran-4 Seekersayt.svg",
+    "ic-recon": "public/orion.svg",
+    "ic-molniya": "public/Molnia.svg",
+    "ic-fpv": "public/FPV.svg",
+    "ic-x101": "public/x-101.svg",
+    "ic-banderol": "public/Banderolsayt.svg",
+    "ic-iskander": "public/Iskander.svg",
+    "ic-kab2": "public/KAB.svg",
+}
 src = SPR.read_text(encoding="utf-8")
 
 def symbol(sid, path):

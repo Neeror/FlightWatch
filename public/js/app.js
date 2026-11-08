@@ -12,12 +12,7 @@ import {
   OBLAST_ORDER
 } from './alerts.js';
 
-
-const SPRITE_URL = '../assets/icons.svg';
-async function loadIconSprite(){const host=document.querySelector('#icon-sprite');if(!host)return;try{host.innerHTML=await(await fetch(SPRITE_URL)).text()}catch(e){console.warn('SVG sprite failed to load',e)}}
-
 (async()=>{
-await loadIconSprite();
 
 /* ═════ URLs ═════ */
 const ADM2_URL = 'https://raw.githubusercontent.com/slawomirmatuszak/ukrainian_geodata/main/rayony.geojson';
@@ -80,17 +75,18 @@ function alertRegionName(props){
  return ADM1_ISO_TO_ALERT[iso] || GEO_TO_ALERT[props.shapeName] || '';
 }
 const TYPES=[
-  {id:'shahed',cat:'БПЛА',n:'Ударний БпЛА',ic:'ic-shahed',f:'shahed.svg',c:'#2f2f2f',role:'uav',sp:[150,195],alt:[600,2600]},
-  {id:'jetuav',cat:'БПЛА',n:'Реактивний БпЛА',ic:'ic-jet',f:'Герань-4.svg',c:'#4a4a4a',role:'uav',sp:[430,560],alt:[1500,4200]},
-  {id:'recon',cat:'БПЛА',n:'Розвідувальний БпЛА',ic:'ic-recon',f:'orion.svg',c:'#8d8f84',role:'uav',sp:[110,155],alt:[1200,3200]},
-  {id:'molnia',cat:'БПЛА',n:'БпЛА «Молнія»',ic:'ic-molniya',f:'Молнія.svg',c:'#b98d4c',role:'uav',sp:[120,165],alt:[200,800]},
-  {id:'fpv',cat:'БПЛА',n:'FPV дрон',ic:'ic-fpv',f:'ФПВ.svg',c:'#2c3134',role:'uav',sp:[80,130],alt:[80,400]},
-  {id:'x101',cat:'РАКЕТИ',n:'Крилата ракета',ic:'ic-x101',f:'x-101.svg',c:'#00c9cc',role:'msl',sp:[720,890],alt:[50,300]},
-  {id:'band',cat:'РАКЕТИ',n:'Ракета «Бандероль»',ic:'ic-banderol',f:'banderol.svg',c:'#e02020',role:'msl',sp:[520,620],alt:[100,500]},
-  {id:'ball',cat:'РАКЕТИ',n:'Балістика',ic:'ic-iskander',f:'Іскандер.svg',c:'#6b6b3a',role:'msl',sp:[2400,3800],alt:[9000,45000]},
-  {id:'kab',cat:'ІНШЕ',n:'КАБ',ic:'ic-kab2',f:'Каб.svg',c:'#5d6b48',role:'kab',sp:[600,800],alt:[1500,6000]}
+  {id:'shahed',cat:'БПЛА',n:'Ударний БпЛА',f:'shahed.svg',c:'#2f2f2f',role:'uav',sp:[150,195],alt:[600,2600]},
+  {id:'jetuav',cat:'БПЛА',n:'Реактивний БпЛА',f:'Geran-4 Seekersayt.svg',c:'#4a4a4a',role:'uav',sp:[430,560],alt:[1500,4200]},
+  {id:'recon',cat:'БПЛА',n:'Розвідувальний БпЛА',f:'orion.svg',c:'#8d8f84',role:'uav',sp:[110,155],alt:[1200,3200]},
+  {id:'molnia',cat:'БПЛА',n:'БпЛА «Молнія»',f:'Molnia.svg',c:'#b98d4c',role:'uav',sp:[120,165],alt:[200,800]},
+  {id:'fpv',cat:'БПЛА',n:'FPV дрон',f:'FPV.svg',c:'#2c3134',role:'uav',sp:[80,130],alt:[80,400]},
+  {id:'x101',cat:'РАКЕТИ',n:'Крилата ракета',f:'x-101.svg',c:'#00c9cc',role:'msl',sp:[720,890],alt:[50,300]},
+  {id:'band',cat:'РАКЕТИ',n:'Ракета «Бандероль»',f:'Banderolsayt.svg',c:'#e02020',role:'msl',sp:[520,620],alt:[100,500]},
+  {id:'ball',cat:'РАКЕТИ',n:'Балістика',f:'Iskander.svg',c:'#6b6b3a',role:'msl',sp:[2400,3800],alt:[9000,45000]},
+  {id:'kab',cat:'ІНШЕ',n:'КАБ',f:'KAB.svg',c:'#5d6b48',role:'kab',sp:[600,800],alt:[1500,6000]}
 ];
 const T=Object.fromEntries(TYPES.map(t=>[t.id,t]));
+const iconURL=t=>'/' + t.f.split('/').map(encodeURIComponent).join('/');
 const ROLE={uav:['БпЛА','#3a3a3a'],msl:['Ракети','#d13a2a'],kab:['КАБ','#5d6b48']};
 
 /* alarmNames тепер = повні офіційні назви з alerts.in.ua */
@@ -115,7 +111,7 @@ const y2lat=(y,z)=>{const n=Math.PI-2*Math.PI*y/(TS*2**z);return 180/Math.PI*Mat
 const w8=(lo,la)=>[lon2x(lo,Z8),lat2y(la,Z8)];
 
 /* ═════ стан ═════ */
-const DEF={size:1,labels:true,trails:true,alarmFill:true,frontLine:true,dim:true,sound:false};
+const DEF={size:1,labels:true,alarmFill:true,frontLine:true,dim:true,sound:false};
 const S={...DEF,off:new Set()};
 const view={lat:48.55,lon:31.4,zoom:6.1};
 const MINZ=5,MAXZ=11;
@@ -488,8 +484,7 @@ function spawn(quiet){
   const tg={
     t,lo,la,hd,sp:rnd(t.sp[0],t.sp[1]),
     alt:Math.round(rnd(t.alt[0],t.alt[1])/50)*50,
-    born:performance.now(),
-    trail:[[...w8(lo, la), lo, la]], lastTrail:0, el:null
+    born:performance.now(),el:null
   };
   targets.push(tg);
   if(!quiet){
@@ -504,7 +499,7 @@ function mkEl(tg){
   d.style.setProperty('--tc',tg.t.c);
 
   d.innerHTML=
-    '<img class="ico" src="./'+encodeURIComponent(tg.t.f)+'" alt="">'+
+    '<img class="ico" src="'+iconURL(tg.t)+'" alt="">'+
     '<div class="tag"><b>'+tg.t.n+'</b><em></em></div>';
 
   $('#marks').appendChild(d);
@@ -538,77 +533,6 @@ function renderTargets(){
   $('#chips').innerHTML=Object.keys(ROLE).map(r=>
     '<span class="chip"><i style="background:'+ROLE[r][1]+'"></i>'+ROLE[r][0]+' <b>'+by[r]+'</b></span>').join('');
 }
-const SVG_NS = 'http://www.w3.org/2000/svg';
-
-/* колір сліду за типом цілі (структура, не колір іконки) */
-const TRAIL_COLOR = {
-  x101:   '#22c55e', // Крилата ракета — зелена
-  band:   '#facc15', // «Бандероль» — жовта
-  shahed: '#ef2b2b', // Ударний шахед — червона
-  jetuav: '#a855f7', // Реактивний шахед — фіолетова
-  molnia: '#ff8c1a', // «Молнія» — оранжева
-  recon:  '#9ca3af', // Розвідувальний — сіра
-  kab:    '#3b82f6', // КАБ — синя
-  ball:   '#ff2d78', // Балістика
-  fpv:    '#00e5d0', // FPV
-};
-const trailColor = t => TRAIL_COLOR[t.id] || t.c || '#ef2b2b';
-
-const TRAIL_MS  = 120;   // як часто дописуємо точку
-const TRAIL_MAX = 320;   // страховка на кількість точок
-const TRAIL_KM  = 35;     // довжина хвоста в км, далі стирається
-
-/* км між двома точками [x,y,lo,la] */
-function kmBetween(a, b){
-  const la = (a[3] + b[3]) / 2 * Math.PI / 180;
-  const dx = (a[2] - b[2]) * 111.32 * Math.cos(la);
-  const dy = (a[3] - b[3]) * 110.57;
-  return Math.hypot(dx, dy);
-}
-
-/* лишаємо тільки останні TRAIL_KM км шляху */
-function trimTrail(tr){
-  let acc = 0;
-  for(let i = tr.length - 1; i > 0; i--){
-    acc += kmBetween(tr[i], tr[i - 1]);
-    if(acc >= TRAIL_KM){ tr.splice(0, i); return; }
-  }
-}
-
-/* група слідів живе всередині #vg, бо саме він має transform мапи.
-   buildVector() чистить #vg, тому шар щоразу створюємо заново за потреби */
-function trailLayer(){
-  const vg = $('#vg'); if(!vg) return null;
-  let g = vg.querySelector('#trails');
-  if(!g){
-    g = document.createElementNS(SVG_NS, 'g');
-    g.setAttribute('id', 'trails');
-    g.setAttribute('fill', 'none');
-    g.setAttribute('pointer-events', 'none');
-    vg.appendChild(g);
-  } else if(g !== vg.lastElementChild){
-    vg.appendChild(g); // тримаємо слідами найвищий шар
-  }
-  return g;
-}
-
-function renderTrails(){
-  const g = trailLayer(); if(!g) return;
-  if(!S.trails){ if(g.childNodes.length) g.innerHTML = ''; return; }
-
-  const live = targets.filter(t => !S.off.has(t.t.id) && t.trail.length > 1);
-
-  g.innerHTML = live.map(t => {
-    /* додаємо поточну позицію, щоб лінія не відставала від іконки */
-    const pts = t.trail.concat([w8(t.lo, t.la)]);
-    const d = 'M' + pts.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('L');
-    const c = trailColor(t.t);
-    const base = ' stroke="' + c + '" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"';
-    return '<path d="' + d + '"' + base + ' stroke-width="16" stroke-opacity=".14" style="filter:blur(5px)"/>'
-         + '<path d="' + d + '"' + base + ' stroke-width="7" stroke-opacity=".30" style="filter:blur(2px)"/>'
-         + '<path d="' + d + '"' + base + ' stroke-width="2.4" stroke-opacity=".95"/>';
-  }).join('');
-}
 
 const SPEEDUP=42;let last=performance.now();
 function loop(now){
@@ -619,26 +543,19 @@ function loop(now){
     tg.la+=Math.cos(r)*tg.sp*hrs/111;
     tg.lo+=Math.sin(r)*tg.sp*hrs/(111*Math.cos(tg.la*Math.PI/180));
     tg.hd+=Math.sin(now/2600+i)*0.028;
-    if(now - tg.lastTrail > TRAIL_MS){
-  tg.lastTrail = now;
-  tg.trail.push([...w8(tg.lo, tg.la), tg.lo, tg.la]);
-  trimTrail(tg.trail);
-  if(tg.trail.length > TRAIL_MAX) tg.trail.shift();
-}
     if(tg.lo<21||tg.lo>41.4||tg.la<43.4||tg.la>53.2||now-tg.born>210000){
       if(tg.el)tg.el.remove();targets.splice(i,1);
       if(Math.random()<0.5)log(tg.t,'<b>Ціль збита</b> · '+oblastAt(tg.lo,tg.la),tg.t.n+', супровід завершено','down');
     }
   }
   renderTargets();
-  renderTrails();
   requestAnimationFrame(loop);
 }
 
 /* ═════ стрічка ═════ */
 function log(type,html,sub,kind){
   const li=document.createElement('li');li.dataset.k=kind||'move';
-  const ico=type?'<svg class="ic" viewBox="0 0 100 100"><use href="#'+type.ic+'" width="100" height="100"/></svg>'
+  const ico=type?'<img class="ic" src="'+iconURL(type)+'" alt="">'
    :'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="'+(kind==='alarm'?'rgb(190,40,26)':'currentColor')+'" stroke-width="2.4" stroke-linecap="round"><path d="M12 3a6 6 0 0 0-6 6v4l-2 3h16l-2-3V9a6 6 0 0 0-6-6ZM10 20h4"/></svg>';
   li.innerHTML='<time>'+hhmm(new Date())+'</time><div><div class="txt">'+ico+'<span>'+html+'</span></div>'+(sub?'<div class="sub">'+sub+'</div>':'')+'</div>';
   const f=$('#feed'),em=f.querySelector('.empty');if(em)em.remove();
@@ -783,7 +700,7 @@ function buildTypes(){
   for(const t of TYPES){
     if(t.cat!==cat){cat=t.cat;html+='<li class="cat eyebrow">'+cat+'</li>';}
     html+='<li><button class="chk" role="checkbox" aria-checked="true" data-t="'+t.id+'">'+
-      '<svg class="gl" viewBox="0 0 100 100"><use href="#'+t.ic+'" width="100" height="100"/></svg>'+
+      '<img class="gl" src="'+iconURL(t)+'" alt="">'+
       '<span class="nm">'+t.n+'</span><span class="box"></span></button></li>';
   }
   $('#typeList').innerHTML=html;
@@ -793,7 +710,7 @@ function sync(){
   $$('.chk').forEach(b=>b.setAttribute('aria-checked',String(!S.off.has(b.dataset.t))));
   $('#rSize').value=S.size;
   $('#vSize').textContent=S.size.toFixed(1).replace('.',',')+'×';
-  renderTargets();renderTrails();paintAlarms();
+  renderTargets();paintAlarms();
 }
 let toastT;
 function toast(m){const e=$('#toast');e.textContent=m;e.classList.add('on');
@@ -943,7 +860,6 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden) pollAlerts();
 });
 
-setInterval(renderTrails, 1500);
 requestAnimationFrame(loop);
 setTimeout(() => $('#boot').classList.add('gone'), 1200);
 

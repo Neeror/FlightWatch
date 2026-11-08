@@ -12,11 +12,14 @@ import {
 (async()=>{
 
 /* ═════ URLs ═════ */
-const ADM2_URL = 'https://raw.githubusercontent.com/slawomirmatuszak/ukrainian_geodata/main/rayony.geojson';
-const ADM2_FB  = './data/ukraine-adm2-simplified.geojson';
-const ADM1_URL = 'https://gist.githubusercontent.com/tingeber/9cafe2675d6bfe0a5ce609e40872c0a3/raw/mapbox-geoBoundaries-UKR-ADM1.geojson';
-const ADM0_URL = 'https://raw.githubusercontent.com/wmgeolab/geoBoundaries/main/releaseData/gbOpen/UKR/ADM0/geoBoundaries-UKR-ADM0.geojson';
-const TRANSNISTRIA_URL = 'https://raw.githubusercontent.com/missinglink/osm-boundaries/master/data/000/065/335/000065335.geojson';
+const ADM2_URL = './data/ukraine-adm2.geojson';
+const ADM2_FB  = 'https://raw.githubusercontent.com/slawomirmatuszak/ukrainian_geodata/main/rayony.geojson';
+const ADM1_URL = './data/ukraine-adm1-simplified.geojson';
+const ADM1_FB  = 'https://gist.githubusercontent.com/tingeber/9cafe2675d6bfe0a5ce609e40872c0a3/raw/mapbox-geoBoundaries-UKR-ADM1.geojson';
+const ADM0_URL = './data/ukraine-adm0-simplified.geojson';
+const TRANSNISTRIA_URL='./data/transnistria.geojson';
+const TRANSNISTRIA_FB='https://raw.githubusercontent.com/missinglink/osm-boundaries/master/data/000/065/335/000065335.geojson';
+const DEEPSTATE_FB='./data/deepstatemap_data_20260810.geojson';
 const DEEPSTATE_URL=(()=>{
   const d=new Date();
   return 'https://raw.githubusercontent.com/cyterat/deepstate-map-data/main/data/deepstatemap_data_'+
@@ -40,15 +43,6 @@ const OBLAST_COORDS={
   'Чернівецька область':[26.00,48.30],'Автономна Республіка Крим':[34.20,45.30],'м. Севастополь':[33.50,44.60],
 };
 
-const OBL=[['Волинська область',25.30,51.15],['Рівненська область',26.40,51.00],['Житомирська область',28.60,50.60],
- ['Київська область',30.30,50.30],['Чернігівська область',31.80,51.50],['Сумська область',34.00,51.00],
- ['Харківська область',36.40,49.70],['Луганська область',39.00,48.80],['Донецька область',37.60,48.10],
- ['Запорізька область',35.40,47.30],['Дніпропетровська область',34.50,48.30],['Полтавська область',33.70,49.70],
- ['Черкаська область',31.30,49.20],['Кіровоградська область',32.30,48.40],['Миколаївська область',31.60,47.30],
- ['Херсонська область',33.40,46.70],['Одеська область',30.00,46.60],['Вінницька область',28.50,49.10],
- ['Хмельницька область',27.00,49.50],['Тернопільська область',25.60,49.40],['Львівська область',23.80,49.70],
- ['Івано-Франківська область',24.70,48.60],['Закарпатська область',23.30,48.40],['Чернівецька область',26.00,48.30]];
-const CRN='Автономна Республіка Крим';
 const ADM1_ISO_TO_ALERT={
  'UA-05':'Вінницька область','UA-07':'Волинська область','UA-09':'Луганська область',
  'UA-12':'Дніпропетровська область','UA-14':'Донецька область','UA-18':'Житомирська область',
@@ -80,7 +74,7 @@ const iconURL=t=>'/' + t.f.split('/').map(encodeURIComponent).join('/');
 const ROLE={uav:['БпЛА','#3a3a3a'],msl:['Ракети','#d13a2a'],kab:['КАБ','#5d6b48']};
 
 let adm2=[],occRings=[],mapDataReady=false;
-let uaBorderPath='', adm1=[];
+let uaBorderGeom=null,adm1=[];
 
 const SPAWN_EDGE=[
   [37.8,50.1],[37.9,49.2],[38.0,48.5],
@@ -101,7 +95,7 @@ const DEF={size:1,labels:true,alarmFill:true,frontLine:true,dim:true,sound:false
 const S={...DEF,off:new Set()};
 const view={lat:48.55,lon:31.4,zoom:6.1};
 const MINZ=5,MAXZ=11;
-let base='osm',tileErr=0,targets=[],levels=new Map(),cells=new Map(),selectedTarget=null,summaryDirty=true;
+let base='osm',tileErr=0,targets=[],levels=new Map(),selectedTarget=null,summaryDirty=true;
 
 const $=q=>document.querySelector(q),$$=q=>[...document.querySelectorAll(q)];
 const rnd=(a,b)=>a+Math.random()*(b-a);
@@ -109,12 +103,26 @@ const pick=a=>a[(Math.random()*a.length)|0];
 const pad=n=>String(n|0).padStart(2,'0');
 const hhmm=d=>pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
 const mapSize={w:1,h:1};
-const targetCanvas=$('#marks');
-const targetCtx=targetCanvas.getContext('2d',{alpha:true,desynchronized:true});
 const LOW_POWER=matchMedia('(pointer:coarse)').matches||
   (navigator.hardwareConcurrency||8)<=4||(navigator.deviceMemory||8)<=4;
-const TARGET_FRAME_MS=1000/(LOW_POWER?20:30);
+const vectorHost=$('#vec');
+/* Кеші різних масштабів: під час жесту перемикаємо готовий кадр, а не раструємо геометрію. */
+const vectorLayers=Array.from({length:3},(_,index)=>{
+  const canvas=document.createElement('canvas');
+  canvas.className='vector-cache';canvas.dataset.cache=index;
+  vectorHost.appendChild(canvas);
+  return{canvas,ctx:canvas.getContext('2d',{alpha:true,desynchronized:true}),raster:null,version:0,lastUsed:0};
+});
+let activeVectorLayer=vectorLayers[0],vectorUseCounter=0,vectorVersion=1;
+activeVectorLayer.canvas.classList.add('active');
+const targetCanvas=$('#marks');
+const targetCtx=targetCanvas.getContext('2d',{alpha:true,desynchronized:true});
+const TARGET_FRAME_MS=LOW_POWER?30:0;
 const TARGET_DPR_CAP=LOW_POWER?1.25:1.75;
+const VECTOR_DPR_CAP=LOW_POWER?1.25:1.5;
+const VECTOR_IDLE_MS=150;
+const VECTOR_MAX_PIXELS=8_000_000;
+const SAME_FRAME_MS=4;
 let targetDpr=1;
 
 function tileURL(z,x,y){
@@ -178,10 +186,8 @@ function clampView(){
 }
 
 function positionMapLayers(){
-  const [w,h]=size();
   for(const [z,lv] of levels)lv.el.style.transform=paneT(z);
-  const s=2**(view.zoom-Z8),x=w/2-lon2x(view.lon,Z8)*s,y=h/2-lat2y(view.lat,Z8)*s;
-  $('#vg').style.transform='matrix('+s+',0,0,'+s+','+x+','+y+')';
+  updateVectorTransform();
   scaleBar();
 }
 
@@ -231,11 +237,13 @@ function scaleBar(){
 
 /* ═════ векторний шар ═════ */
 function esc(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
-function poly(pts){return pts.map((p,i)=>(i?'L':'M')+w8(p[0],p[1]).map(v=>v.toFixed(1)).join(' ')).join('')+'Z';}
-function line(pts){return pts.map((p,i)=>(i?'L':'M')+w8(p[0],p[1]).map(v=>v.toFixed(1)).join(' ')).join('');}
-function ringPath(r){return r.map((p,i)=>(i?'L':'M')+w8(p[0],p[1]).map(v=>v.toFixed(1)).join(' ')).join('')+'Z';}
-function geomRings(g){if(!g)return[];if(g.type==='Polygon')return g.coordinates;if(g.type==='MultiPolygon')return g.coordinates.flatMap(p=>p);return[];}
-function geomPath(g){return geomRings(g).map(ringPath).join('')||'M0 0';}
+function geomRings(g){
+  if(!g)return[];
+  if(g.type==='Polygon')return g.coordinates;
+  if(g.type==='MultiPolygon')return g.coordinates.flatMap(p=>p);
+  if(g.type==='GeometryCollection')return(g.geometries||[]).flatMap(geomRings);
+  return[];
+}
 function center(g){const pts=geomRings(g).flat();if(!pts.length)return[31,49];let minx=99,maxx=-99,miny=99,maxy=-99;for(const [x,y]of pts){minx=Math.min(minx,x);maxx=Math.max(maxx,x);miny=Math.min(miny,y);maxy=Math.max(maxy,y)}return[(minx+maxx)/2,(miny+maxy)/2];}
 function insideRing(lo,la,r){let inn=false;for(let i=0,j=r.length-1;i<r.length;j=i++){const a=r[i],b=r[j];if(((a[1]>la)!==(b[1]>la))&&(lo<(b[0]-a[0])*(la-a[1])/(b[1]-a[1])+a[0]))inn=!inn;}return inn;}
 function insideGeom(lo,la,g){const rings=geomRings(g);return rings.some(r=>insideRing(lo,la,r));}
@@ -256,10 +264,10 @@ async function loadMapData(){
       yesterday.getFullYear()+String(yesterday.getMonth()+1).padStart(2,'0')+String(yesterday.getDate()).padStart(2,'0')+'.geojson';
       const [ra,rd,rb1,rb0,rm]=await Promise.all([
       getJSON(ADM2_URL).catch(()=>getJSON(ADM2_FB).catch(()=>null)),
-      getJSON(DEEPSTATE_URL).catch(()=>getJSON(dsFallback).catch(()=>null)),
-      getJSON(ADM1_URL).catch(()=>null),
+      getJSON(DEEPSTATE_URL).catch(()=>getJSON(dsFallback).catch(()=>getJSON(DEEPSTATE_FB).catch(()=>null))),
+      getJSON(ADM1_URL).catch(()=>getJSON(ADM1_FB).catch(()=>null)),
       getJSON(ADM0_URL).catch(()=>null),
-      getJSON(TRANSNISTRIA_URL).catch(()=>null)
+      getJSON(TRANSNISTRIA_URL).catch(()=>getJSON(TRANSNISTRIA_FB).catch(()=>null))
     ]);
 
     /* райони — додаємо oblastUa для матчингу з alerts API */
@@ -268,7 +276,7 @@ async function loadMapData(){
      adm2=(ra.features||[]).map((f,i)=>{
      const c=center(f.geometry);
      const shapeName = f.properties?.rayon || f.properties?.shapeName || f.properties?.name || ('Район '+(i+1));
-     return{name:shapeName,oblastUa:'',lo:c[0],la:c[1],g:f.geometry,d:geomPath(f.geometry)};
+      return{name:shapeName,oblastUa:'',lo:c[0],la:c[1],g:f.geometry};
     });
   }
 
@@ -292,8 +300,7 @@ async function loadMapData(){
   adm1=(rb1.features||[]).map(f=>({
     name:f.properties?.shapeName||'',
     ua:alertRegionName(f.properties),
-    g:f.geometry,
-    d:geomPath(f.geometry)
+    g:f.geometry
   }));
 
   let orphans=0;
@@ -338,110 +345,233 @@ console.log('[map] ADM2 районів:', adm2.length);
 console.log('[map] ADM1 областей:', adm1.length);
 console.log('[map] Район без області:', adm2.filter(r => !r.oblastUa).length);
     /* точний кордон */
-    if(rb0){const g=rb0.features?.[0]?.geometry;if(g)uaBorderPath=geomPath(g);}
+    if(rb0){const g=rb0.features?.[0]?.geometry;if(g)uaBorderGeom=g;}
     mapDataReady=true;
   }catch(e){console.warn('map data fallback',e);mapDataReady=true;}
 }
 
-function clipHalf(pl,A,B){
-  const mx=(A[0]+B[0])/2,my=(A[1]+B[1])/2,nx=B[0]-A[0],ny=B[1]-A[1];
-  const sd=p=>(p[0]-mx)*nx+(p[1]-my)*ny,out=[];
-  for(let i=0;i<pl.length;i++){
-    const P=pl[i],Q=pl[(i+1)%pl.length],sp=sd(P),sq=sd(Q);
-    if(sp<=0)out.push(P);
-    if((sp<0&&sq>0)||(sp>0&&sq<0)){const t=sp/(sp-sq);out.push([P[0]+(Q[0]-P[0])*t,P[1]+(Q[1]-P[1])*t]);}
+let countryWorldPath=null,occupiedWorldPath=null,vectorRenderTimer=0,vectorReady=false;
+let alarmWorldPaths={full:null,partial:null,oblast:null};
+let alarmPathSignature='',vectorStyleSignature='';
+
+function appendWorldRing(path,ring){
+  if(!ring||ring.length<3)return;
+  const first=w8(ring[0][0],ring[0][1]);path.moveTo(first[0],first[1]);
+  const last=ring[ring.length-1];
+  const end=last[0]===ring[0][0]&&last[1]===ring[0][1]?ring.length-1:ring.length;
+  for(let i=1;i<end;i++){
+    const p=w8(ring[i][0],ring[i][1]);path.lineTo(p[0],p[1]);
   }
-  return out;
+  path.closePath();
+}
+function worldPathFromRings(rings){
+  const path=new Path2D();
+  for(const ring of rings||[])appendWorldRing(path,ring);
+  return path;
+}
+function worldPathFromGeometry(geometry){return worldPathFromRings(geomRings(geometry));}
+
+function vectorTransform(layer=activeVectorLayer){
+  const raster=layer?.raster;if(!raster)return null;
+  const scale=2**(view.zoom-Z8),k=scale/raster.scale;
+  const cx=lon2x(view.lon,Z8),cy=lat2y(view.lat,Z8);
+  return{
+    k,
+    x:mapSize.w/2-(cx-raster.cx)*scale-raster.w/2*k,
+    y:mapSize.h/2-(cy-raster.cy)*scale-raster.h/2*k
+  };
+}
+
+function applyVectorTransform(layer){
+  const t=vectorTransform(layer);if(!t)return;
+  layer.canvas.style.transform='matrix('+t.k+',0,0,'+t.k+','+t.x+','+t.y+')';
+}
+
+function vectorCoversViewport(layer,pad=24){
+  const t=vectorTransform(layer),raster=layer?.raster;if(!t||!raster)return false;
+  return t.x<=-pad&&t.y<=-pad&&
+    t.x+raster.w*t.k>=mapSize.w+pad&&
+    t.y+raster.h*t.k>=mapSize.h+pad;
+}
+
+function findCachedVectorLayer(pad=24){
+  const scale=2**(view.zoom-Z8);
+  return vectorLayers
+    .filter(layer=>layer.version===vectorVersion&&vectorCoversViewport(layer,pad))
+    .sort((a,b)=>
+      Math.abs(Math.log2(scale/a.raster.scale))-Math.abs(Math.log2(scale/b.raster.scale))||
+      b.lastUsed-a.lastUsed
+    )[0]||null;
+}
+
+function activateVectorLayer(layer){
+  if(!layer||layer===activeVectorLayer){if(layer)applyVectorTransform(layer);return;}
+  activeVectorLayer.canvas.classList.remove('active');
+  layer.canvas.classList.add('active');
+  activeVectorLayer=layer;layer.lastUsed=++vectorUseCounter;
+  applyVectorTransform(layer);
+}
+
+function updateVectorTransform(){
+  if(activeVectorLayer.version!==vectorVersion||!vectorCoversViewport(activeVectorLayer)){
+    const cached=findCachedVectorLayer();
+    if(cached)activateVectorLayer(cached);
+  }
+  applyVectorTransform(activeVectorLayer);
+}
+
+function vectorBufferScale(){
+  const area=mapSize.w*mapSize.h;
+  if(area>3_000_000)return 1.2;
+  if(area>2_000_000)return 1.25;
+  return 1.3;
+}
+
+function vectorPixelRatio(w,h){
+  const cap=Math.min(devicePixelRatio||1,VECTOR_DPR_CAP);
+  return Math.max(.75,Math.min(cap,Math.sqrt(VECTOR_MAX_PIXELS/(w*h))));
+}
+
+function vectorRasterIsCurrent(layer){
+  const raster=layer?.raster;if(!raster||layer.version!==vectorVersion)return false;
+  return Math.abs(raster.scale-2**(view.zoom-Z8))<1e-8&&
+    Math.abs(raster.cx-lon2x(view.lon,Z8))<1e-5&&
+    Math.abs(raster.cy-lat2y(view.lat,Z8))<1e-5&&
+    raster.viewportW===mapSize.w&&raster.viewportH===mapSize.h;
+}
+
+function nextVectorRenderLayer(){
+  if(!activeVectorLayer.raster)return activeVectorLayer;
+  const inactive=vectorLayers.filter(layer=>layer!==activeVectorLayer);
+  const reusable=inactive.find(layer=>!layer.raster||layer.version!==vectorVersion);
+  if(reusable)return reusable;
+  const scale=activeVectorLayer.raster.scale;
+  return inactive.sort((a,b)=>
+    Math.abs(Math.log2(a.raster.scale/scale))-Math.abs(Math.log2(b.raster.scale/scale))||
+    a.lastUsed-b.lastUsed
+  )[0];
+}
+
+function renderVectorNow(){
+  if(!vectorReady||!countryWorldPath)return;
+  if(vectorRenderTimer){clearTimeout(vectorRenderTimer);vectorRenderTimer=0;}
+
+  const layer=nextVectorRenderLayer(),canvas=layer.canvas,ctx=layer.ctx;
+  const bufferScale=vectorBufferScale();
+  const w=Math.ceil(mapSize.w*bufferScale),h=Math.ceil(mapSize.h*bufferScale);
+  const dpr=vectorPixelRatio(w,h);
+  const pw=Math.max(1,Math.round(w*dpr)),ph=Math.max(1,Math.round(h*dpr));
+  if(canvas.width!==pw||canvas.height!==ph){
+    canvas.width=pw;canvas.height=ph;
+    canvas.style.width=w+'px';canvas.style.height=h+'px';
+  }
+
+  const scale=2**(view.zoom-Z8),cx=lon2x(view.lon,Z8),cy=lat2y(view.lat,Z8);
+  const a=dpr*scale,x=dpr*(w/2-cx*scale),y=dpr*(h/2-cy*scale);
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.globalAlpha=1;
+  ctx.globalCompositeOperation='source-over';
+  ctx.clearRect(0,0,pw,ph);
+
+  if(S.dim){
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.fillStyle='rgba(49,40,38,.18)';
+    ctx.fillRect(0,0,w,h);
+    ctx.globalCompositeOperation='destination-out';
+    ctx.fillStyle='#000';
+    ctx.setTransform(a,0,0,a,x,y);
+    ctx.fill(countryWorldPath,'evenodd');
+    ctx.globalCompositeOperation='source-over';
+  }
+
+  ctx.setTransform(a,0,0,a,x,y);
+  ctx.lineJoin='round';ctx.lineCap='round';
+
+  if(S.frontLine&&occupiedWorldPath){
+    ctx.fillStyle='rgba(224,52,42,.1632)';
+    ctx.strokeStyle='rgba(150,25,20,.3936)';
+    ctx.lineWidth=1.15/scale;
+    ctx.fill(occupiedWorldPath,'evenodd');ctx.stroke(occupiedWorldPath);
+  }
+
+  if(S.alarmFill){
+    if(alarmWorldPaths.partial){
+      ctx.fillStyle='rgba(203,42,32,.12)';ctx.strokeStyle='rgba(178,70,62,.48)';
+      ctx.lineWidth=.7/scale;
+      ctx.fill(alarmWorldPaths.partial,'evenodd');ctx.stroke(alarmWorldPaths.partial);
+    }
+    if(alarmWorldPaths.full){
+      ctx.fillStyle='rgba(203,42,32,.24)';ctx.strokeStyle='rgba(178,70,62,.72)';
+      ctx.lineWidth=.85/scale;
+      ctx.fill(alarmWorldPaths.full,'evenodd');ctx.stroke(alarmWorldPaths.full);
+    }
+    if(alarmWorldPaths.oblast){
+      ctx.strokeStyle='rgb(178,28,20)';ctx.lineWidth=1.15/scale;
+      ctx.stroke(alarmWorldPaths.oblast);
+    }
+  }
+
+  ctx.setTransform(1,0,0,1,0,0);
+  layer.raster={cx,cy,scale,w,h,viewportW:mapSize.w,viewportH:mapSize.h};layer.version=vectorVersion;
+  layer.lastUsed=++vectorUseCounter;
+  activateVectorLayer(layer);
+}
+
+function queueVectorRender(force=false){
+  if(!vectorReady)return;
+  if(force){renderVectorNow();return;}
+  updateVectorTransform();
+  if(activeVectorLayer.version!==vectorVersion||!vectorCoversViewport(activeVectorLayer)){
+    renderVectorNow();return;
+  }
+  if(vectorRasterIsCurrent(activeVectorLayer)){
+    if(vectorRenderTimer){clearTimeout(vectorRenderTimer);vectorRenderTimer=0;}
+    return;
+  }
+  if(vectorRenderTimer)clearTimeout(vectorRenderTimer);
+  vectorRenderTimer=setTimeout(()=>{vectorRenderTimer=0;renderVectorNow();},VECTOR_IDLE_MS);
+}
+
+function rebuildAlarmPaths(force=false){
+  const states=adm2.map(raionStatus);
+  const oblastStates=adm1.map(a=>a.ua?oblastStatus(a.ua):'N');
+  const signature=states.join('')+'|'+oblastStates.join('');
+  if(!force&&signature===alarmPathSignature)return false;
+
+  const full=new Path2D(),partial=new Path2D(),oblast=new Path2D();
+  let hasFull=false,hasPartial=false,hasOblast=false;
+  for(let i=0;i<adm2.length;i++){
+    if(states[i]==='full'){full.addPath(adm2[i].path);hasFull=true;}
+    else if(states[i]==='partial'){partial.addPath(adm2[i].path);hasPartial=true;}
+  }
+  for(let i=0;i<adm1.length;i++){
+    if(oblastStates[i]==='A'){oblast.addPath(adm1[i].path);hasOblast=true;}
+  }
+  alarmWorldPaths={
+    full:hasFull?full:null,
+    partial:hasPartial?partial:null,
+    oblast:hasOblast?oblast:null
+  };
+  alarmPathSignature=signature;
+  return true;
+}
+
+function currentVectorStyleSignature(){
+  return Number(S.alarmFill)+':'+Number(S.frontLine)+':'+Number(S.dim);
 }
 
 function buildVector(){
-  const ua8 = UA.map(p => w8(p[0], p[1]));
-
-  // Fallback-області, якщо GeoJSON районів не завантажився
-  const seeds = OBL.map(o => ({
-    name: o[0],
-    point: w8(o[1], o[2])
-  }));
-
-  for(const s of seeds){
-    let polygon = ua8;
-
-    for(const other of seeds){
-      if(other === s || !polygon.length) continue;
-      polygon = clipHalf(polygon, s.point, other.point);
-    }
-
-    cells.set(s.name, polygon);
-  }
-
-  cells.set(CRN, CRIMEA.map(p => w8(p[0], p[1])));
-
-  const fallbackPath = name => {
-    const points = cells.get(name);
-    if(!points || !points.length) return 'M0 0';
-    return 'M' + points
-      .map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1))
-      .join('L') + 'Z';
-  };
-
-   const countryPath = adm1.length
-   ? adm1.map(a => a.d).join('')
-   : (uaBorderPath || poly(UA) + poly(CRIMEA));
-
-  const world = TS * 2 ** Z8;
- let g = '<path id="dimmer" d="M0 0H' + world + 'V' + world + 'H0Z' + countryPath +
-   '" fill="rgba(49,40,38,.18)" fill-rule="evenodd" clip-rule="evenodd" pointer-events="none"/>';
-
-  // Активні тривоги: точні полігони районів
- // Окуповані території: НЕ чорні, тільки легка штрихована зона
-g += '<g id="occG">';
-g += occRings.map(r =>
-  '<path class="occ" d="' + ringPath(r) + '"/>'
-).join('');
-g += '</g>';
-// Тривоги поверх окупованого шару
-g += '<g id="alarmG">';
-
-if (mapDataReady && adm2.length) {
-  g += adm2.map((a, i) => `
-  <path
-    class="ac"
-    data-i="${i}"
-    data-oblast="${esc(a.oblastUa || '')}"
-    data-raion="${esc(a.name)}"
-    d="${a.d}"
-  />
-`).join('');
-}
-
-g += '<g id="adm1G">';
-
-g += adm1.map(a =>
-  '<path class="oblast-border" d="' + a.d + '"/>'
-).join('');
-
-g += adm1.filter(a => a.ua).map(a =>
-  '<path class="ob" data-oblast="' + esc(a.ua) +
-  '" d="' + a.d + '" display="none"/>'
-).join('');
-
-g += '</g>';
-
-  // Кордон України
-   g += ' ';
-g += ' ';
-g += ' ';
-
-
-  // Лінія фронту
-  
-
-  $('#vg').innerHTML = g;
-
-  console.log('[map] vector built:', {
-    districts: adm2.length,
-    oblasts: adm1.length
-  });
+  countryWorldPath=uaBorderGeom
+    ? worldPathFromGeometry(uaBorderGeom)
+    : worldPathFromRings([UA,CRIMEA]);
+  occupiedWorldPath=worldPathFromRings(occRings);
+  for(const region of adm2){region.path=worldPathFromGeometry(region.g);delete region.g;}
+  for(const oblast of adm1){oblast.path=worldPathFromGeometry(oblast.g);delete oblast.g;}
+  uaBorderGeom=null;
+  rebuildAlarmPaths(true);
+  vectorStyleSignature=currentVectorStyleSignature();
+  vectorReady=true;renderVectorNow();
+  console.log('[map] vector canvas built:',{districts:adm2.length,oblasts:adm1.length});
   $('#lgOcc').style.background='repeating-linear-gradient(45deg,rgba(224,52,42,.6) 0 3px,rgba(224,52,42,.2) 3px 6px)';
 }
 
@@ -449,24 +579,14 @@ g += ' ';
 /* ═════ paintAlarms — три рівні: область / район / громада ═════ */
 
 function paintAlarms(){
-  const on = S.alarmFill && mapDataReady;
-
-  $$('#alarmG .ac').forEach(p=>{
-    const st = on ? raionStatus(adm2[+p.dataset.i]) : 'none';
-    p.dataset.state = st;
-    p.setAttribute('display', st === 'none' ? 'none' : 'inline');
-    if (st === 'none') return;
-    p.setAttribute('fill', st === 'full' ? 'rgba(203,42,32,.30)' : 'rgba(203,42,32,.14)');
-    p.setAttribute('stroke-width', st === 'full' ? '1.15' : '1');
-  });
-
-  $$('#adm1G .ob').forEach(p=>{
-    const full = on && oblastStatus(p.dataset.oblast) === 'A';
-    p.setAttribute('display', full ? 'inline' : 'none');
-  });
-
-  const occ = $('#occG'); if (occ) occ.setAttribute('display', S.frontLine ? 'inline' : 'none');
-  const dim = $('#dimmer'); if (dim) dim.setAttribute('display', S.dim ? 'inline' : 'none');
+  if(!mapDataReady||!vectorReady)return;
+  const pathsChanged=rebuildAlarmPaths();
+  const style=currentVectorStyleSignature();
+  if(pathsChanged||style!==vectorStyleSignature){
+    vectorStyleSignature=style;
+    vectorVersion++;
+    queueVectorRender(true);
+  }
 }
 
 /* ═════ цілі ═════ */
@@ -574,7 +694,9 @@ function paintTargets(){
 
 let lastTargetPaint=0,targetPaintTimer=0;
 function renderTargets(force=false){
-  const now=performance.now(),wait=TARGET_FRAME_MS-(now-lastTargetPaint);
+  const now=performance.now(),elapsed=now-lastTargetPaint;
+  if(!force&&elapsed<SAME_FRAME_MS)return;
+  const wait=TARGET_FRAME_MS-elapsed;
   if(!force&&wait>1){
     if(!targetPaintTimer)targetPaintTimer=setTimeout(()=>{targetPaintTimer=0;renderTargets(true);},wait);
     return;
@@ -586,7 +708,7 @@ function renderTargets(force=false){
 const SPEEDUP=42;let last=performance.now(),lastStep=0;
 function loop(now){
   requestAnimationFrame(loop);
-  if(now-lastStep<TARGET_FRAME_MS)return;
+  if(TARGET_FRAME_MS&&now-lastStep<TARGET_FRAME_MS)return;
   const dt=Math.min(now-last,250);last=now;lastStep=now;
   const hrs=dt/3600000*SPEEDUP;
   for(let i=targets.length-1;i>=0;i--){
@@ -757,11 +879,11 @@ function flyTo(lat,lon,zoom){
     const k=Math.min(1,(t-t0)/D),p=1-Math.pow(1-k,4);
     view.lat=s.lat+(e.lat-s.lat)*p;view.lon=s.lon+(e.lon-s.lon)*p;view.zoom=s.zoom+(e.zoom-s.zoom)*p;
     renderMapFrame();
-    if(k<1)requestAnimationFrame(step);else drawTiles();
+    if(k<1)requestAnimationFrame(step);else{drawTiles();queueVectorRender();}
   })(t0);
 }
 let redrawQueued=false;
-function renderMapFrame(){clampView();positionMapLayers();renderTargets();queueTileDraw();}
+function renderMapFrame(){clampView();positionMapLayers();renderTargets();queueTileDraw();queueVectorRender();}
 function redrawMap(){if(redrawQueued)return;redrawQueued=true;requestAnimationFrame(()=>{redrawQueued=false;renderMapFrame();});}
 function zoomAt(dz,px,py){
   const [w,h]=size();
@@ -799,7 +921,7 @@ function zoomAt(dz,px,py){
       lastD=d;
     }
   });
-  const up=e=>{pts.delete(e.pointerId);if(pts.size<2)lastD=0;if(!pts.size){el.classList.remove('drag');drawTiles();renderTargets(true);}};
+  const up=e=>{pts.delete(e.pointerId);if(pts.size<2)lastD=0;if(!pts.size){el.classList.remove('drag');drawTiles();renderTargets(true);queueVectorRender();}};
   el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
   el.addEventListener('wheel',e=>{e.preventDefault();const r=el.getBoundingClientRect();
     zoomAt(-e.deltaY*(e.deltaMode===1?0.05:0.0022),e.clientX-r.left,e.clientY-r.top);},{passive:false});
@@ -847,6 +969,7 @@ measureMap();
 await Promise.all([loadMapData(),loadTargetIcons()]);
 
 buildTypes();
+clampView();
 buildVector();
 drawTiles();
 sync();
@@ -861,7 +984,7 @@ let resizeQueued=false;
 new ResizeObserver(()=>{
   if(resizeQueued)return;resizeQueued=true;
   requestAnimationFrame(()=>{
-    resizeQueued=false;measureMap();clampView();positionMapLayers();renderTargets(true);queueTileDraw();
+    resizeQueued=false;measureMap();clampView();positionMapLayers();renderTargets(true);queueTileDraw();queueVectorRender();
   });
 }).observe($('#mapwrap'));
 

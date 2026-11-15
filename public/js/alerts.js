@@ -1,7 +1,7 @@
 /**
  * alerts.js · клієнт alerts.in.ua через Pages-проксі /api/alerts
  *
- * Дає три рівні тривог:
+ * Дає три рівні територій і два рівні небезпеки (red / yellow):
  *   oblast  → заливаємо всі райони області
  *   raion   → заливаємо конкретний район
  *   hromada / city → батьківський район у «частковому» стилі (P)
@@ -109,10 +109,18 @@ let lastError = null;
 let lastSync = null;
 
 const byTitle = new Map();       // location_title → alert
-const fullOblasts = new Set();   // oblastKey, тривога на всю область
-const fullRaions = new Set();    // scoped key, тривога на весь район
-const partialRaions = new Set(); // scoped key, тривога в громаді/місті всередині
-const looseRaions = new Set();   // key без області, фолбек
+const fullOblasts = new Map();   // oblastKey → red | yellow
+const fullRaions = new Map();    // scoped key → red | yellow
+const partialRaions = new Map(); // scoped key → red | yellow
+const looseRaions = new Map();   // key без області → red | yellow, фолбек
+const ALERT_RANK = { yellow: 1, red: 2 };
+
+const alertLevel = (value) => value === 'yellow' ? 'yellow' : 'red';
+const strongerLevel = (a, b) => (ALERT_RANK[b] || 0) > (ALERT_RANK[a] || 0) ? b : a;
+function setStrongest(map, keyName, level) {
+  if (!keyName) return;
+  map.set(keyName, strongerLevel(map.get(keyName), level));
+}
 
 /* ─── Завантаження ──────────────────────────────────────────────────── */
 
@@ -166,25 +174,30 @@ function ingest(list) {
       notes: a.notes || '',
       startedAt: a.started_at ? new Date(a.started_at) : null,
       calculated: !!a.calculated,
+      alertLevel: alertLevel(a.alert_level),
+      threats: Array.isArray(a.threats) ? a.threats : [],
     };
-    byTitle.set(alert.title, alert);
+    const previous = byTitle.get(alert.title);
+    if (!previous || ALERT_RANK[alert.alertLevel] >= ALERT_RANK[previous.alertLevel]) {
+      byTitle.set(alert.title, alert);
+    }
 
     if (alert.level === 'oblast') {
-      fullOblasts.add(oblastKey(alert.title));
+      setStrongest(fullOblasts, oblastKey(alert.title), alert.alertLevel);
       continue;
     }
 
     if (alert.level === 'raion') {
-      fullRaions.add(scoped(alert.oblast, alert.title));
-      looseRaions.add(key(alert.title));
+      setStrongest(fullRaions, scoped(alert.oblast, alert.title), alert.alertLevel);
+      setStrongest(looseRaions, key(alert.title), alert.alertLevel);
       continue;
     }
 
     // hromada / city / unknown: точних полігонів немає,
     // тому позначаємо батьківський район як часткову тривогу
     const parent = alert.raion || alert.title;
-    partialRaions.add(scoped(alert.oblast, parent));
-    looseRaions.add(key(parent));
+    setStrongest(partialRaions, scoped(alert.oblast, parent), alert.alertLevel);
+    setStrongest(looseRaions, key(parent), alert.alertLevel);
   }
 }
 
@@ -211,33 +224,68 @@ export const getError = () => lastError;
 export const getSyncedAt = () => lastSync;
 export const hasAlarm = (title) => byTitle.has(title);
 
-/**
- * Статус району на мапі.
- * @param {{name:string, oblastUa:string}} region
- * @returns {'full'|'partial'|'none'}
- */
-export function raionStatus(region) {
-  if (!region) return 'none';
+function raionState(region) {
+  if (!region) return null;
   const ok = oblastKey(region.oblastUa || '');
-  if (ok && fullOblasts.has(ok)) return 'full';
-
   const s = `${ok}|${key(region.name)}`;
-  if (fullRaions.has(s)) return 'full';
-  if (partialRaions.has(s)) return 'partial';
+  let bestLevel = null;
+  let bestCoverage = 'partial';
+  const consider = (level, coverage) => {
+    if (!level) return;
+    const rank = ALERT_RANK[level] || 0;
+    const bestRank = ALERT_RANK[bestLevel] || 0;
+    if (rank > bestRank || (rank === bestRank && coverage === 'full')) {
+      bestLevel = level;
+      bestCoverage = coverage;
+    }
+  };
+
+  if (ok) consider(fullOblasts.get(ok), 'full');
+  consider(fullRaions.get(s), 'full');
+  consider(partialRaions.get(s), 'partial');
 
   // фолбек, якщо область для полігона не визначилась
-  if (!ok && looseRaions.has(key(region.name))) return 'partial';
-  return 'none';
+  if (!ok) consider(looseRaions.get(key(region.name)), 'partial');
+  return bestLevel ? { level: bestLevel, coverage: bestCoverage } : null;
 }
 
-/** 'A' — вся область, 'P' — частково, 'N' — тихо. */
-export function oblastStatus(title) {
+/** Сумісний статус: full / partial / none. */
+export function raionStatus(region) {
+  return raionState(region)?.coverage || 'none';
+}
+
+/** Колір рівня району: red / yellow / null. */
+export function raionAlertLevel(region) {
+  return raionState(region)?.level || null;
+}
+
+function oblastState(title) {
   const ok = oblastKey(title);
-  if (fullOblasts.has(ok)) return 'A';
+  const full = fullOblasts.get(ok);
+  let partial = null;
   for (const a of byTitle.values()) {
-    if (a.level !== 'oblast' && oblastKey(a.oblast) === ok) return 'P';
+    if (a.level !== 'oblast' && oblastKey(a.oblast) === ok) {
+      partial = strongerLevel(partial, a.alertLevel);
+    }
   }
-  return 'N';
+  return {
+    status: full ? 'A' : partial ? 'P' : 'N',
+    alertLevel: strongerLevel(full, partial) || null,
+    fullAlertLevel: full || null,
+  };
+}
+
+/** Сумісний статус області: A / P / N. */
+export function oblastStatus(title) {
+  return oblastState(title).status;
+}
+
+export function oblastAlertLevel(title) {
+  return oblastState(title).alertLevel;
+}
+
+export function oblastFullAlertLevel(title) {
+  return oblastState(title).fullAlertLevel;
 }
 
 export const oblastHasAnyAlarm = (title) => oblastStatus(title) !== 'N';
@@ -249,7 +297,7 @@ export function alarmSummary() {
     .filter((a) => levels.includes(a.level))
     .sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
 
-  const oblasts = OBLAST_ORDER.map((title) => ({ title, status: oblastStatus(title) }));
+  const oblasts = OBLAST_ORDER.map((title) => ({ title, ...oblastState(title) }));
   return {
     oblasts,
     oblastAlarms: pick('oblast'),
@@ -257,6 +305,8 @@ export function alarmSummary() {
     hromadaAlarms: pick('hromada', 'city', 'unknown'),
     countFull: oblasts.filter((o) => o.status === 'A').length,
     countPartial: oblasts.filter((o) => o.status === 'P').length,
+    countRed: oblasts.filter((o) => o.alertLevel === 'red').length,
+    countYellow: oblasts.filter((o) => o.alertLevel === 'yellow').length,
     total: all.length,
   };
 }

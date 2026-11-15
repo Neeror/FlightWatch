@@ -3,11 +3,13 @@ import {
   getAlerts,
   getError,
   raionStatus,
+  raionAlertLevel,
   oblastStatus,
+  oblastFullAlertLevel,
   alarmSummary,
   diffAlarms,
   GEO_TO_ALERT
-} from './alerts.js';
+} from './alerts.js?v=20261108-1';
 
 (async()=>{
 
@@ -172,12 +174,16 @@ function targetAt(px,py){
 function latlngAt(px,py){const [w,h]=size(),z=view.zoom;
   return [y2lat(lat2y(view.lat,z)+py-h/2,z), x2lon(lon2x(view.lon,z)+px-w/2,z)];}
 
-  const BB={w:21.9,e:40.4,s:43.9,n:52.5};           // bbox України з невеликим запасом
-function clampView(){
+const BB={w:21.9,e:40.4,s:43.9,n:52.5};           // bbox України з невеликим запасом
+function minViewZoom(){
   const [w,h]=size();
   const fit=Math.max(Math.log2(w/(lon2x(BB.e,0)-lon2x(BB.w,0))),
                      Math.log2(h/(lat2y(BB.s,0)-lat2y(BB.n,0))));
-  view.zoom=Math.min(MAXZ,Math.max(Math.max(MINZ,fit),view.zoom));
+  return Math.max(MINZ,fit);
+}
+function clampView(){
+  const [w,h]=size();
+  view.zoom=Math.min(MAXZ,Math.max(minViewZoom(),view.zoom));
   const z=view.zoom,x0=lon2x(BB.w,z),x1=lon2x(BB.e,z),y0=lat2y(BB.n,z),y1=lat2y(BB.s,z);
   let cx=lon2x(view.lon,z),cy=lat2y(view.lat,z);
   cx=(x1-x0<=w)?(x0+x1)/2:Math.min(Math.max(cx,x0+w/2),x1-w/2);
@@ -351,7 +357,10 @@ console.log('[map] Район без області:', adm2.filter(r => !r.oblas
 }
 
 let countryWorldPath=null,occupiedWorldPath=null,vectorRenderTimer=0,vectorReady=false;
-let alarmWorldPaths={full:null,partial:null,oblast:null};
+let alarmWorldPaths={
+  redFull:null,redPartial:null,redOblast:null,
+  yellowFull:null,yellowPartial:null,yellowOblast:null
+};
 let alarmPathSignature='',vectorStyleSignature='';
 
 function appendWorldRing(path,ring){
@@ -495,19 +504,33 @@ function renderVectorNow(){
   }
 
   if(S.alarmFill){
-    if(alarmWorldPaths.partial){
+    if(alarmWorldPaths.yellowPartial){
+      ctx.fillStyle='rgba(235,175,35,.14)';ctx.strokeStyle='rgba(186,126,12,.55)';
+      ctx.lineWidth=.7/scale;
+      ctx.fill(alarmWorldPaths.yellowPartial,'evenodd');ctx.stroke(alarmWorldPaths.yellowPartial);
+    }
+    if(alarmWorldPaths.yellowFull){
+      ctx.fillStyle='rgba(235,175,35,.28)';ctx.strokeStyle='rgba(186,126,12,.78)';
+      ctx.lineWidth=.85/scale;
+      ctx.fill(alarmWorldPaths.yellowFull,'evenodd');ctx.stroke(alarmWorldPaths.yellowFull);
+    }
+    if(alarmWorldPaths.yellowOblast){
+      ctx.strokeStyle='rgb(183,119,0)';ctx.lineWidth=1.15/scale;
+      ctx.stroke(alarmWorldPaths.yellowOblast);
+    }
+    if(alarmWorldPaths.redPartial){
       ctx.fillStyle='rgba(203,42,32,.12)';ctx.strokeStyle='rgba(178,70,62,.48)';
       ctx.lineWidth=.7/scale;
-      ctx.fill(alarmWorldPaths.partial,'evenodd');ctx.stroke(alarmWorldPaths.partial);
+      ctx.fill(alarmWorldPaths.redPartial,'evenodd');ctx.stroke(alarmWorldPaths.redPartial);
     }
-    if(alarmWorldPaths.full){
+    if(alarmWorldPaths.redFull){
       ctx.fillStyle='rgba(203,42,32,.24)';ctx.strokeStyle='rgba(178,70,62,.72)';
       ctx.lineWidth=.85/scale;
-      ctx.fill(alarmWorldPaths.full,'evenodd');ctx.stroke(alarmWorldPaths.full);
+      ctx.fill(alarmWorldPaths.redFull,'evenodd');ctx.stroke(alarmWorldPaths.redFull);
     }
-    if(alarmWorldPaths.oblast){
+    if(alarmWorldPaths.redOblast){
       ctx.strokeStyle='rgb(178,28,20)';ctx.lineWidth=1.15/scale;
-      ctx.stroke(alarmWorldPaths.oblast);
+      ctx.stroke(alarmWorldPaths.redOblast);
     }
   }
 
@@ -533,25 +556,31 @@ function queueVectorRender(force=false){
 }
 
 function rebuildAlarmPaths(force=false){
-  const states=adm2.map(raionStatus);
-  const oblastStates=adm1.map(a=>a.ua?oblastStatus(a.ua):'N');
-  const signature=states.join('')+'|'+oblastStates.join('');
+  const states=adm2.map(a=>{
+    const coverage=raionStatus(a),level=raionAlertLevel(a);
+    return coverage!=='none'&&level?level+'-'+coverage:'none';
+  });
+  const oblastStates=adm1.map(a=>a.ua&&oblastStatus(a.ua)==='A'?(oblastFullAlertLevel(a.ua)||'red'):'none');
+  const signature=states.join('|')+'||'+oblastStates.join('|');
   if(!force&&signature===alarmPathSignature)return false;
 
-  const full=new Path2D(),partial=new Path2D(),oblast=new Path2D();
-  let hasFull=false,hasPartial=false,hasOblast=false;
+  const paths={
+    redFull:new Path2D(),redPartial:new Path2D(),redOblast:new Path2D(),
+    yellowFull:new Path2D(),yellowPartial:new Path2D(),yellowOblast:new Path2D()
+  };
+  const has={redFull:false,redPartial:false,redOblast:false,yellowFull:false,yellowPartial:false,yellowOblast:false};
   for(let i=0;i<adm2.length;i++){
-    if(states[i]==='full'){full.addPath(adm2[i].path);hasFull=true;}
-    else if(states[i]==='partial'){partial.addPath(adm2[i].path);hasPartial=true;}
+    const key=states[i]==='red-full'?'redFull'
+      :states[i]==='red-partial'?'redPartial'
+      :states[i]==='yellow-full'?'yellowFull'
+      :states[i]==='yellow-partial'?'yellowPartial':'';
+    if(key){paths[key].addPath(adm2[i].path);has[key]=true;}
   }
   for(let i=0;i<adm1.length;i++){
-    if(oblastStates[i]==='A'){oblast.addPath(adm1[i].path);hasOblast=true;}
+    const key=oblastStates[i]==='red'?'redOblast':oblastStates[i]==='yellow'?'yellowOblast':'';
+    if(key){paths[key].addPath(adm1[i].path);has[key]=true;}
   }
-  alarmWorldPaths={
-    full:hasFull?full:null,
-    partial:hasPartial?partial:null,
-    oblast:hasOblast?oblast:null
-  };
+  alarmWorldPaths=Object.fromEntries(Object.keys(paths).map(key=>[key,has[key]?paths[key]:null]));
   alarmPathSignature=signature;
   return true;
 }
@@ -732,7 +761,7 @@ const dur=t=>{const s=(Date.now()-t)/1000|0;return pad(s/60)+':'+pad(s%60);};
 
 
 function tickAlarms(){
-  $$('#aList .st').forEach(e=>e.textContent=dur(+e.dataset.s));
+  $$('#aList .st[data-s]').forEach(e=>e.textContent=dur(+e.dataset.s));
   const active=getAlerts();
   const times=[...active.values()].filter(a=>a.level === 'oblast').map(a=>a.startedAt.getTime()).sort((a,b)=>a-b);
   $('#aLong').textContent=times.length?'найдовша '+dur(times[0]):'';
@@ -746,6 +775,8 @@ function renderAlarmPanel(){
 
   // Кількість областей, де є повна або часткова тривога
   const affectedOblasts = summary.countFull + summary.countPartial;
+  const redOblasts = Number.isFinite(summary.countRed) ? summary.countRed : affectedOblasts;
+  const yellowOblasts = Number.isFinite(summary.countYellow) ? summary.countYellow : 0;
 
   // Велике число у вкладці «Тривоги»
   const bigNumber = $('#aBig');
@@ -755,9 +786,17 @@ function renderAlarmPanel(){
   const tabNumber = $('#tabN');
   if (tabNumber) tabNumber.textContent = affectedOblasts;
 
+  const alarmSubtitle = $('#aSub');
+  if (alarmSubtitle) {
+    alarmSubtitle.textContent = affectedOblasts
+      ? `червоних: ${redOblasts} · жовтих: ${yellowOblasts}`
+      : 'областей під тривогою';
+  }
+
   const alarmTab = document.querySelector('.tab[data-pane="alarms"]');
   if (alarmTab) {
     alarmTab.dataset.hot = String(affectedOblasts > 0);
+    alarmTab.dataset.level = redOblasts > 0 ? 'red' : yellowOblasts > 0 ? 'yellow' : 'none';
   }
 
   const activeOblasts = summary.oblasts
@@ -775,13 +814,14 @@ function renderAlarmPanel(){
           const details = summary.raionAlarms
             .concat(summary.hromadaAlarms)
             .filter(a => a.oblast === o.title).length;
-
+          const level = o.alertLevel === 'yellow' ? 'yellow' : 'red';
+          const levelLabel = level === 'yellow' ? 'жовта' : 'червона';
           const label = o.status === 'A'
-            ? 'тривога'
-            : `${details} р-н/грм`;
+            ? levelLabel
+            : `${levelLabel} · ${details}`;
 
           return `
-            <li class="on" data-go="${esc(o.title)}">
+            <li class="on" data-level="${level}" data-go="${esc(o.title)}">
               <span class="fl"></span>
               <span class="nm">${esc(o.title)}</span>
               <span class="st">${label}</span>
@@ -888,9 +928,9 @@ function redrawMap(){if(redrawQueued)return;redrawQueued=true;requestAnimationFr
 function zoomAt(dz,px,py){
   const [w,h]=size();
   if(px==null){px=w/2;py=h/2;}
+  const nz=Math.max(minViewZoom(),Math.min(MAXZ,view.zoom+dz));
+  if(Math.abs(nz-view.zoom)<1e-9)return;
   const [la,lo]=latlngAt(px,py);
-  const nz=Math.max(MINZ,Math.min(MAXZ,view.zoom+dz));
-  if(nz===view.zoom)return;
   view.zoom=nz;
   view.lon=x2lon(lon2x(lo,nz)-(px-w/2),nz);
   view.lat=y2lat(lat2y(la,nz)-(py-h/2),nz);
@@ -901,6 +941,8 @@ function zoomAt(dz,px,py){
   const el=$('#mapwrap');const pts=new Map();let lastD=0;
   el.addEventListener('pointerdown',e=>{
     if(e.target.closest('.pill'))return;
+    const allowed=e.pointerType==='touch'||(e.pointerType==='mouse'&&(e.button===0||e.button===2));
+    if(!allowed){e.preventDefault();return;}
     e.preventDefault();
     el.setPointerCapture(e.pointerId);pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
     el.classList.add('drag');
@@ -921,8 +963,10 @@ function zoomAt(dz,px,py){
       lastD=d;
     }
   });
-  const up=e=>{pts.delete(e.pointerId);if(pts.size<2)lastD=0;if(!pts.size){el.classList.remove('drag');drawTiles();renderTargets(true);queueVectorRender();}};
+  const up=e=>{if(!pts.has(e.pointerId))return;pts.delete(e.pointerId);if(pts.size<2)lastD=0;if(!pts.size){el.classList.remove('drag');drawTiles();renderTargets(true);queueVectorRender();}};
   el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+  el.addEventListener('contextmenu',e=>e.preventDefault());
+  el.addEventListener('auxclick',e=>e.preventDefault());
   el.addEventListener('wheel',e=>{e.preventDefault();const r=el.getBoundingClientRect();
     zoomAt(-e.deltaY*(e.deltaMode===1?0.05:0.0022),e.clientX-r.left,e.clientY-r.top);},{passive:false});
   el.addEventListener('dblclick',e=>{const r=el.getBoundingClientRect();zoomAt(1,e.clientX-r.left,e.clientY-r.top);});

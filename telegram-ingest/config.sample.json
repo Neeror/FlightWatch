@@ -5,95 +5,27 @@
   "sessionFile": "session.string",
   "logFile": "shahed-messages.log",
   "trackTtlMinutes": 240,
-  "testMode": true,
-  "testLimit": 40,
+  "mediaDir": "media",
+  "testMode": false,
   "chats": [
-    {
-      "id": "kherson_monitoring",
-      "name": "Херсонщина Моніторинг",
-      "region": "kherson",
-      "mode": "filter",
-      "categories": ["fpv", "molniya", "kab", "recon"],
-      "statusPatterns": ["оновлено", "❌", "✅"]
-    },
-    {
-      "id": "sumygo",
-      "name": "СУМИ / SUMY GO",
-      "region": "sumy",
-      "mode": "filter",
-      "categories": ["fpv", "molniya", "kab", "recon"]
-    },
-    {
-      "id": "radar_zaporizhzhya",
-      "name": "Радар Запоріжжя",
-      "region": "zaporizhzhia",
-      "mode": "filter",
-      "categories": ["fpv", "molniya", "kab", "recon"]
-    },
-    {
-      "id": "monitor1654",
-      "name": "monitor 1654 | Харків",
-      "region": "kharkiv",
-      "mode": "filter",
-      "categories": ["fpv", "molniya", "kab", "recon"]
-    },
-    {
-      "id": "ukraine_pyxx",
-      "name": "Повітряний простір | Напрямок ракет",
-      "mode": "filter",
-      "categories": ["shahed", "ballistic", "cruise", "recon"]
-    },
-
-    {
-      "id": "flight_watch",
-      "name": "Flight Watch — тільки балістика + відбої",
-      "mode": "filter",
-      "categories": ["ballistic"],
-      "takeReplies": true,
-      "takeEdits": false,
-      "takeStatusOnly": true,
-      "statusPatterns": ["відпочивайте", "відбій"]
-    },
-    {
-      "id": "StrategicaviationT",
-      "name": "Стратегічна авіація — бандеролі",
-      "mode": "filter",
-      "categories": ["banderol", "cruise", "ballistic", "kab"],
-      "takeReplies": true,
-      "takeEdits": true,
-      "takeStatusOnly": true
-    },
-    {
-      "id": "kudy_letyt",
-      "name": "Куди летить — КР Х-101 + дорозвідка",
-      "mode": "filter",
-      "categories": ["cruise", "recon"],
-      "takeReplies": true,
-      "takeEdits": true,
-      "takeStatusOnly": true,
-      "extraPatterns": {
-        "cruise": ["(?<![\\p{L}\\p{N}])кр(?![\\p{L}\\p{N}])"]
-      }
-    },
-    {
-      "id": "povitryanatrivogaaa",
-      "name": "Карта повітряних тривог — шахеди",
-      "mode": "filter",
-      "categories": ["shahed", "ballistic"],
-      "takeReplies": true,
-      "takeEdits": true,
-      "takeStatusOnly": true
-    },
-    
-    {
-      "id": "ЗАМІНИ_НА_ЮЗЕРНЕЙМ_ТЕСТ_КАНАЛУ",
-      "name": "ТЕСТ канал",
-      "mode": "filter",
-      "categories": ["shahed", "ballistic", "cruise", "banderol", "kab", "fpv", "molniya", "recon"],
-      "takeReplies": true,
-      "takeEdits": true,
-      "takeStatusOnly": true,
-      "debug": true
-    }
+    { "id": "Radar_Dnipra", "name": "Radar Dnipra", "mode": "all" },
+    { "id": "monitor1654", "name": "monitor1654", "mode": "all" },
+    { "id": "kudy_letyt", "name": "kudy_letyt", "mode": "all" },
+    { "id": "sumyliketop", "name": "sumyliketop", "mode": "all" },
+    { "id": "AirDefencers", "name": "AirDefencers", "mode": "all" },
+    { "id": "povitryanatrivogaaa", "name": "povitryanatrivogaaa", "mode": "all" },
+    { "id": "sumygo", "name": "sumygo", "mode": "all" },
+    { "id": "chernihiv_nebo", "name": "chernihiv_nebo", "mode": "all" },
+    { "id": "eyes_everywhere_ua", "name": "eyes_everywhere_ua", "mode": "all" },
+    { "id": "StrategicaviationT", "name": "StrategicaviationT", "mode": "all" },
+    { "id": "RadarChernihiv", "name": "RadarChernihiv", "mode": "all" },
+    { "id": "eyes_everywhere_dnipro", "name": "eyes_everywhere_dnipro", "mode": "all" },
+    { "id": "kyiv_airdef", "name": "kyiv_airdef", "mode": "all" },
+    { "id": "sumyregion", "name": "sumyregion", "mode": "all" },
+    { "id": "rnd_khmelnytskyi", "name": "rnd_khmelnytskyi", "mode": "all" },
+    { "id": "kherson_monitoring", "name": "kherson_monitoring", "mode": "all" },
+    { "id": "cherkasy_nebbo", "name": "cherkasy_nebbo", "mode": "all" },
+    { "id": "kyiv_monitor1", "name": "kyiv_monitor1", "mode": "all" },
+    { "id": "flight_watch", "name": "flight_watch", "mode": "all" }
   ]
 }

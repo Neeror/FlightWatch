@@ -40,23 +40,12 @@ if (!chats.length) {
 
 const sessionFile = path.join(__dirname, String(cfg.sessionFile || "session.string"));
 const logFile = path.join(__dirname, String(cfg.logFile || "shahed-messages.log"));
-const testMode = Boolean(cfg.testMode);
-const testChat = String(cfg.testChat || "").trim();
-
-let activeChats = chats;
-if (testMode) {
-  const pick = testChat
-    ? chats.filter(c => String(c.id ?? c.username ?? "") === testChat || c.name === testChat)
-    : chats.slice(0, 1);
-  if (!pick.length) {
-    console.error(`TEST MODE: канал "${testChat}" не знайдено у chats.`);
-    process.exit(1);
-  }
-  activeChats = pick.map(c => ({ ...c, debug: true }));
-  console.log(`--- TEST MODE (realtime): ${activeChats[0].name || activeChats[0].id} ---`);
-}
+// У production усі канали проходять через один realtime ingest без вибіркового testMode.
+const activeChats = chats;
 
 const TRACK_TTL_MS = Number(cfg.trackTtlMinutes || 240) * 60_000;
+const mediaDir = path.join(__dirname, String(cfg.mediaDir || "media"));
+fs.mkdirSync(mediaDir, { recursive: true });
 
 const sessionString = fs.existsSync(sessionFile) ? fs.readFileSync(sessionFile, "utf8").trim() : "";
 const session = new StringSession(sessionString);
@@ -135,11 +124,41 @@ function replyId(message) {
   return message.replyTo?.replyToMsgId ?? message.replyToMsgId ?? null;
 }
 
+function safeSegment(value) {
+  return String(value ?? "unknown").replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 120) || "unknown";
+}
+
+async function saveMedia(message, meta) {
+  if (!message.media) return [];
+  const messageDir = path.join(mediaDir, safeSegment(meta.ref), safeSegment(message.id));
+  fs.mkdirSync(messageDir, { recursive: true });
+  const saved = [];
+  const mediaItems = message.media?.className === "MessageMediaPhoto"
+    ? [message.media]
+    : message.media?.className === "MessageMediaDocument" && message.media.document?.mimeType?.startsWith("image/")
+      ? [message.media]
+      : [];
+  for (let index = 0; index < mediaItems.length; index += 1) {
+    try {
+      const filePath = path.join(messageDir, `photo-${index + 1}`);
+        const downloaded = await message.downloadMedia({ outputFile: filePath });
+      if (downloaded) {
+        const resolved = typeof downloaded === "string" ? downloaded : filePath;
+        saved.push({ type: "photo", path: path.relative(__dirname, resolved).replaceAll(path.sep, "/"), original: true });
+      }
+    } catch (error) {
+      console.error(`media ${meta.ref}/${message.id}/${index + 1}:`, error.message);
+    }
+  }
+  return saved;
+}
+
 function buildPayload(message, meta, result, extra = {}) {
   return {
     ts: new Date().toISOString(),
     date: message.date,
     id: message.id,
+    channelId: meta.entityId,
     chat: meta.label,
     chatRef: meta.ref,
     region: meta.region || null,
@@ -155,7 +174,11 @@ function buildPayload(message, meta, result, extra = {}) {
     parentText: extra.parentText || null,
     parentCategories: extra.parentCategories || null,
     isEdit: result.kind === "edit",
+    editedMessageId: result.kind === "edit" ? message.id : null,
+    originalMessageId: result.kind === "edit" ? message.id : null,
+    editOf: result.kind === "edit" ? `${meta.entityId}:${message.id}` : null,
     hasMedia: Boolean(message.media),
+    media: extra.media || [],
     link: /^[a-zA-Z]/.test(meta.ref) ? `https://t.me/${meta.ref}/${message.id}` : null,
     text: message.text || "",
   };
@@ -181,18 +204,16 @@ async function handle(evt, { isEdit }) {
       isEdit,
       wasTracked: tracked.has(selfKey),
     });
+    const media = await saveMedia(message, meta);
 
-    if (!result.matched) {
-      // debug-канал (тестовий): логуємо й відкинуте, щоб видно було причину
-      if (meta.debug) emit(buildPayload(message, meta, result, { parentId: rid || null }));
-      return;
-    }
+    if (!result.matched) return;
 
     emit(
       buildPayload(message, meta, result, {
         parentId: parent ? rid : null,
         parentText: parent ? parent.text : null,
         parentCategories: parent ? parent.categories : null,
+        media,
       })
     );
 

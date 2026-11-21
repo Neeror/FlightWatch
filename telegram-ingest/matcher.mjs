@@ -165,7 +165,14 @@ export function matchMessage(text, chatCfg = {}, ctx = {}) {
   if (ctx.isEdit && chatCfg.takeEdits === false) return skip("edits-disabled", detectStatus(clean));
 
   if (chatCfg.mode === "all") {
-    return { matched: true, kind: "all", reason: "mode=all", categories: [], hits: [], status: detectStatus(clean) };
+    return {
+      matched: true,
+      kind: ctx.isEdit ? "edit" : "all",
+      reason: ctx.isEdit ? "edit-of-message" : "mode=all",
+      categories: [],
+      hits: [],
+      status: detectStatus(clean, chatCfg.statusPatterns || []),
+    };
   }
 
   const cats = chatCfg.categories?.length ? chatCfg.categories : Object.keys(CATEGORY_PATTERNS);

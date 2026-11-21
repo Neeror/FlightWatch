@@ -99,8 +99,8 @@ const view={lat:48.55,lon:31.4,zoom:6.1};
 const MINZ=5,MAXZ=11;
 let base='osm',tileErr=0,targets=[],levels=new Map(),selectedTarget=null,summaryDirty=true;
 const demoMode=new URLSearchParams(location.search).get('demo')==='1';
-const markerStatus=$('#clock');
-document.addEventListener('fw:markers',e=>{ markerStatus.title=e.detail?'Зв’язок із сервером маркерів':'Немає зв’язку із сервером маркерів'; markerStatus.closest('.stamp')?.classList.toggle('offline',!e.detail); const status=$('#streamStatus'); if(status) status.textContent=e.detail?'реальні дані':'немає зв’язку'; });
+let markerStatus=null;
+document.addEventListener('fw:markers',e=>{ markerStatus=markerStatus||document.querySelector('#clock'); if(markerStatus) markerStatus.title=e.detail?'Зв’язок із сервером маркерів':'Немає зв’язку із сервером маркерів'; markerStatus?.closest('.stamp')?.classList.toggle('offline',!e.detail); const status=document.querySelector('#streamStatus'); if(status) status.textContent=e.detail?'реальні дані':'немає зв’язку'; });
 const markerState=new Map();
 let markerSocket=null, markerReconnect=0, markerConnected=false;
 function markerType(type){

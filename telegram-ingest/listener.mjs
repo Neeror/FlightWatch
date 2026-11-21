@@ -8,6 +8,7 @@ import editedMod from "telegram/events/EditedMessage.js";
 import connections from "telegram/network/connection/index.js";
 import input from "input";
 import { matchMessage } from "./matcher.mjs";
+import { analyzeMessage, isAiEnabled, validateAiConfig } from "./ai-processor.mjs";
 
 const { TelegramClient } = telegram;
 const { StringSession } = sessions;
@@ -32,6 +33,8 @@ if (!apiId || !apiHash || !phone) {
   process.exit(1);
 }
 
+validateAiConfig();
+
 const chats = Array.isArray(cfg.chats) ? cfg.chats : [];
 if (!chats.length) {
   console.error("Порожній chats у config.json.");
@@ -40,6 +43,7 @@ if (!chats.length) {
 
 const sessionFile = path.join(__dirname, String(cfg.sessionFile || "session.string"));
 const logFile = path.join(__dirname, String(cfg.logFile || "shahed-messages.log"));
+const aiLogFile = path.join(__dirname, String(cfg.aiLogFile || "deepseek-results.log"));
 // У production усі канали проходять через один realtime ingest без вибіркового testMode.
 const activeChats = chats;
 
@@ -120,6 +124,35 @@ function emit(payload) {
   fs.appendFileSync(logFile, line + "\n", "utf8");
 }
 
+const aiQueue = [];
+const aiConcurrency = Math.max(1, Number(process.env.DEEPSEEK_MAX_CONCURRENCY || 10));
+let aiActive = 0;
+
+function queueAi(payload) {
+  if (!isAiEnabled()) return;
+  aiQueue.push(payload);
+  pumpAiQueue();
+}
+
+function pumpAiQueue() {
+  while (aiActive < aiConcurrency && aiQueue.length) {
+    const payload = aiQueue.shift();
+    aiActive += 1;
+    analyzeMessage(payload)
+      .then((analysis) => {
+        if (!analysis) return;
+        const aiLine = JSON.stringify({ ...payload, ai: analysis, aiProcessedAt: new Date().toISOString() });
+        fs.appendFileSync(aiLogFile, aiLine + "\\n", "utf8");
+        console.log(`DeepSeek OK ${payload.chatRef}/${payload.id}: ${analysis.targets?.length ?? 0} цілей`);
+      })
+      .catch((error) => console.error(`DeepSeek ${payload.chatRef}/${payload.id}:`, error.message))
+      .finally(() => {
+        aiActive -= 1;
+        pumpAiQueue();
+      });
+  }
+}
+
 function replyId(message) {
   return message.replyTo?.replyToMsgId ?? message.replyToMsgId ?? null;
 }
@@ -141,7 +174,7 @@ async function saveMedia(message, meta) {
   for (let index = 0; index < mediaItems.length; index += 1) {
     try {
       const filePath = path.join(messageDir, `photo-${index + 1}`);
-        const downloaded = await message.downloadMedia({ outputFile: filePath });
+      const downloaded = await message.downloadMedia({ outputFile: filePath });
       if (downloaded) {
         const resolved = typeof downloaded === "string" ? downloaded : filePath;
         saved.push({ type: "photo", path: path.relative(__dirname, resolved).replaceAll(path.sep, "/"), original: true });
@@ -204,7 +237,9 @@ async function handle(evt, { isEdit }) {
       isEdit,
       wasTracked: tracked.has(selfKey),
     });
-    const media = await saveMedia(message, meta);
+    const media = message.media
+      ? [{ type: "photo", path: `media/${safeSegment(meta.ref)}/${safeSegment(message.id)}/photo-1`, original: true, status: "queued" }]
+      : [];
 
     if (!result.matched) return;
 
@@ -216,6 +251,23 @@ async function handle(evt, { isEdit }) {
         media,
       })
     );
+
+    if (message.media) {
+      saveMedia(message, meta).then((saved) => {
+        if (!saved.length) console.error(`media ${meta.ref}/${message.id}: завантаження не повернуло файл`);
+        else {
+          console.log(`media saved ${meta.ref}/${message.id}: ${saved.map((item) => item.path).join(", ")}`);
+          queueAi({ ...buildPayload(message, meta, result, { parentId: parent ? rid : null, media: saved }) });
+        }
+      }).catch((error) => console.error(`media ${meta.ref}/${message.id}:`, error.message));
+    } else {
+      queueAi(buildPayload(message, meta, result, {
+        parentId: parent ? rid : null,
+        parentText: parent ? parent.text : null,
+        parentCategories: parent ? parent.categories : null,
+        media: [],
+      }));
+    }
 
     // трекаємо і сам алерт, і його апдейти — щоб ланцюжок не рвався
     tracked.set(selfKey, {

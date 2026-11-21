@@ -4,6 +4,7 @@
   "phone": "+18507254827",
   "sessionFile": "session.string",
   "logFile": "shahed-messages.log",
+  "aiLogFile": "deepseek-results.log",
   "trackTtlMinutes": 240,
   "testMode": false,
   "mediaDir": "media",
@@ -26,6 +27,9 @@
     { "id": "kherson_monitoring", "name": "kherson_monitoring", "mode": "all" },
     { "id": "cherkasy_nebbo", "name": "cherkasy_nebbo", "mode": "all" },
     { "id": "kyiv_monitor1", "name": "kyiv_monitor1", "mode": "all" },
-    { "id": "flight_watch", "name": "flight_watch", "mode": "all" }
+    { "id": "flight_watch", "name": "flight_watch", "mode": "all" },
+    { "id": "Lutsk_monitor", "name": "Lutsk_monitor", "mode": "all" },
+    { "id": "odessapublic", "name": "odessapublic", "mode": "all" },
+    { "id": "eRadarrua", "name": "eRadarrua", "mode": "all" }
   ]
 }

@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node listener.mjs",
-    "test": "node --test test/"
+    "test": "node --test telegram-ingest/test/marker-tracker.test.mjs telegram-ingest/test/gazetteer.test.mjs telegram-ingest/test/matcher.test.mjs"
   },
   "dependencies": {
     "input": "^1.0.1",

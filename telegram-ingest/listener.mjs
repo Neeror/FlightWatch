@@ -9,6 +9,7 @@ import connections from "telegram/network/connection/index.js";
 import input from "input";
 import { matchMessage } from "./matcher.mjs";
 import { analyzeMessage, isAiEnabled, validateAiConfig } from "./ai-processor.mjs";
+import { resolveTarget } from "./gazetteer.mjs";
 
 const { TelegramClient } = telegram;
 const { StringSession } = sessions;
@@ -17,6 +18,12 @@ const { EditedMessage } = editedMod;
 const { ConnectionTCPObfuscated } = connections;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const envPath = path.resolve(__dirname, '..', '.env');
+if (fs.existsSync(envPath)) for (const rawLine of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+  const line = rawLine.trim();
+  const match = line.match(/^([A-Z0-9_]+)\s*=\s*(.*)$/);
+  if (match && !process.env[match[1]]) process.env[match[1]] = match[2].replace(/^['"]|['"]$/g, '');
+}
 const configPath = path.join(__dirname, "config.json");
 
 if (!fs.existsSync(configPath)) {
@@ -48,6 +55,73 @@ const aiLogFile = path.join(__dirname, String(cfg.aiLogFile || "deepseek-results
 const activeChats = chats;
 
 const TRACK_TTL_MS = Number(cfg.trackTtlMinutes || 240) * 60_000;
+const ingestUrl = String(process.env.FLIGHTWATCH_INGEST_URL || '').trim();
+const ingestSecret = String(process.env.INGEST_SECRET || '').trim();
+const ingestTimeoutMs = Math.min(10_000, Math.max(5_000, Number(process.env.INGEST_TIMEOUT_MS || 8_000)));
+const dryRun = process.env.DRY_RUN === '1';
+const logsDir = path.join(__dirname, 'logs');
+const unresolvedLogFile = path.join(logsDir, 'unresolved-locations.jsonl');
+const resolvedLogFile = path.join(logsDir, 'resolved-locations.jsonl');
+const dryRunLogFile = path.join(logsDir, 'dry-run.jsonl');
+const unresolvedCounts = new Map();
+fs.mkdirSync(logsDir, { recursive: true });
+
+function logJsonLine(file, value) {
+  fs.appendFileSync(file, `${JSON.stringify(value)}\n`, 'utf8');
+}
+function unresolvedKey(target) {
+  return `${String(target.location_name || '').trim().toLocaleLowerCase('uk-UA')}|${String(target.region || '').trim().toLocaleLowerCase('uk-UA')}`;
+}
+function recordUnresolved(target, resolved, payload) {
+  const key = unresolvedKey(target);
+  const lines = fs.existsSync(unresolvedLogFile) ? fs.readFileSync(unresolvedLogFile, 'utf8').split(/\r?\n/).filter(Boolean) : [];
+  const index = lines.findIndex((line) => { try { return JSON.parse(line).key === key; } catch { return false; } });
+  let previousCount = unresolvedCounts.get(key) || 0;
+  if (!previousCount && index >= 0) { try { previousCount = Number(JSON.parse(lines[index]).count) || 0; } catch {} }
+  const count = previousCount + 1;
+  unresolvedCounts.set(key, count);
+  const record = { key, name: target.location_name || null, region: target.region || null, reason: resolved.reason, candidates: (resolved.variants || []).map((item) => item.name), count, channel: payload.chatRef, messageId: payload.id, updatedAt: new Date().toISOString() };
+  if (index >= 0) lines[index] = JSON.stringify(record); else lines.push(JSON.stringify(record));
+  fs.writeFileSync(unresolvedLogFile, `${lines.join('\n')}\n`, 'utf8');
+}
+function recordResolved(target, resolved, payload) {
+  if (resolved.method !== 'stem' && resolved.method !== 'fuzzy') return;
+  logJsonLine(resolvedLogFile, { searched: target.location_name, region: target.region || null, matched: resolved.matchedName, method: resolved.method, score: resolved.score ?? null, coordinates: resolved.coordinates, channel: payload.chatRef, messageId: payload.id, at: new Date().toISOString() });
+}
+function writeDryRun(payload, target, resolved) {
+  logJsonLine(dryRunLogFile, { channel: payload.chatRef, messageId: payload.id, text: String(payload.text || '').slice(0, 200), location_name: target.location_name || null, target_point: target.target_point || null, region: target.region || null, method: resolved.ok ? resolved.method : (resolved.reason === 'not-found' ? 'not found' : resolved.reason), coordinates: resolved.ok ? resolved.coordinates : null, at: new Date().toISOString() });
+}
+
+async function postToWorker(payload) {
+  if (!ingestUrl || !ingestSecret) {
+    console.error('Ingest is not configured: FLIGHTWATCH_INGEST_URL/INGEST_SECRET');
+    return false;
+  }
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ingestTimeoutMs);
+    try {
+      const response = await fetch(ingestUrl, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ingestSecret}` },
+        body: JSON.stringify(payload),
+      });
+      if (response.ok) return true;
+      if (response.status < 500 && response.status !== 429) {
+        console.error(`Worker ingest rejected ${response.status}: ${payload.chatRef}/${payload.id}`);
+        return false;
+      }
+    } catch (error) {
+      console.error(`Worker ingest attempt ${attempt + 1}/3:`, error.message);
+    } finally {
+      clearTimeout(timer);
+    }
+    if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+  }
+  console.error('Worker ingest failed after 3 attempts; payload retained in local AI log', JSON.stringify(payload));
+  return false;
+}
 const mediaDir = path.join(__dirname, String(cfg.mediaDir || "media"));
 fs.mkdirSync(mediaDir, { recursive: true });
 
@@ -143,7 +217,31 @@ function pumpAiQueue() {
         if (!analysis) return;
         const aiLine = JSON.stringify({ ...payload, ai: analysis, aiProcessedAt: new Date().toISOString() });
         fs.appendFileSync(aiLogFile, aiLine + "\\n", "utf8");
-        console.log(`DeepSeek OK ${payload.chatRef}/${payload.id}: ${analysis.targets?.length ?? 0} цілей`);
+        const resolvedTargets = [];
+        for (const target of analysis.targets || []) {
+          const cleaned = { ...target };
+          delete cleaned.coordinates;
+          if (target.is_cancelled || /відбій|чисто|збит|знищ/i.test(String(target.status || ''))) {
+            if (dryRun) writeDryRun(payload, target, { ok: false, reason: 'cancelled', coordinates: null });
+            resolvedTargets.push(cleaned);
+            continue;
+          }
+          const resolved = resolveTarget(target);
+          if (!resolved.ok) {
+            recordUnresolved(target, resolved, payload);
+            if (dryRun) writeDryRun(payload, target, resolved);
+            console.warn(`[gazetteer] ${resolved.reason}: ${target.location_name || '[без назви]'}`, resolved.variants?.map((item) => item.name));
+            continue;
+          }
+          recordResolved(target, resolved, payload);
+          if (dryRun) writeDryRun(payload, target, resolved);
+          resolvedTargets.push({ ...cleaned, coordinates: resolved.coordinates, matched_location_name: resolved.matchedName });
+        }
+        if (dryRun) {
+          console.log(`[dry-run] ${payload.chatRef}/${payload.id}: ${resolvedTargets.length} resolved targets; Worker POST skipped`);
+        } else {
+          void postToWorker({ ...payload, ai: { ...analysis, targets: resolvedTargets } });
+        }
       })
       .catch((error) => console.error(`DeepSeek ${payload.chatRef}/${payload.id}:`, error.message))
       .finally(() => {

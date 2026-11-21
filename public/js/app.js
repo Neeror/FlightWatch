@@ -98,6 +98,40 @@ const S={...DEF,off:new Set()};
 const view={lat:48.55,lon:31.4,zoom:6.1};
 const MINZ=5,MAXZ=11;
 let base='osm',tileErr=0,targets=[],levels=new Map(),selectedTarget=null,summaryDirty=true;
+const demoMode=new URLSearchParams(location.search).get('demo')==='1';
+const markerStatus=$('#clock');
+document.addEventListener('fw:markers',e=>{ markerStatus.title=e.detail?'Зв’язок із сервером маркерів':'Немає зв’язку із сервером маркерів'; markerStatus.closest('.stamp')?.classList.toggle('offline',!e.detail); const status=$('#streamStatus'); if(status) status.textContent=e.detail?'реальні дані':'немає зв’язку'; });
+const markerState=new Map();
+let markerSocket=null, markerReconnect=0, markerConnected=false;
+function markerType(type){
+  const s=String(type||'').toLowerCase();
+  if(/рак|missile|балист|баліст|крилат|іскандер/.test(s)) return TYPES.find(t=>t.role==='msl')||TYPES[0];
+  if(/каб|бомб/.test(s)) return TYPES.find(t=>t.id==='kab')||TYPES[0];
+  return TYPES.find(t=>t.id==='shahed')||TYPES[0];
+}
+function markerTarget(marker){
+  const t=markerType(marker.type);
+  return { real:true, markerId:marker.id, marker:t, t, lo:marker.position.lon, la:marker.position.lat,
+    hd:Number.isFinite(marker.bearing)?marker.bearing:0, sp:Number.isFinite(marker.speedKmh)?marker.speedKmh:0,
+    targetLo:marker.position.lon, targetLa:marker.position.lat, lastConfirmedAt:marker.lastSeenAt, confirmedLo:marker.position.lon, confirmedLa:marker.position.lat,
+    wx:lon2x(marker.position.lon,Z8), wy:lat2y(marker.position.lat,Z8), cos:Math.cos((marker.bearing||0)*Math.PI/180), sin:Math.sin((marker.bearing||0)*Math.PI/180),
+    born:performance.now() };
+}
+function syncMarkerTarget(marker){
+  const existing=targets.find(t=>t.real&&t.markerId===marker.id);
+  if(existing){ existing.marker=marker; existing.t=markerType(marker.type); existing.confirmedLo=marker.position.lon; existing.confirmedLa=marker.position.lat; existing.lastConfirmedAt=marker.lastSeenAt; existing.targetLo=marker.position.lon; existing.targetLa=marker.position.lat; existing.hd=Number.isFinite(marker.bearing)?marker.bearing:existing.hd; existing.sp=Number.isFinite(marker.speedKmh)?marker.speedKmh:0; return; }
+  targets.push(markerTarget(marker));
+}
+function removeMarker(id){ const i=targets.findIndex(t=>t.real&&t.markerId===id); if(i>=0){if(selectedTarget===targets[i])selectedTarget=null;targets.splice(i,1);summaryDirty=true;} markerState.delete(id); }
+function replaceMarkers(markers){ for(const target of targets.filter(t=>t.real)) removeMarker(target.markerId); for(const marker of markers||[]){markerState.set(marker.id,marker);if(marker.status!=='lost')syncMarkerTarget(marker);} summaryDirty=true;renderTargets(true); }
+function connectMarkers(){
+  const url=(location.protocol==='https:'?'wss://':'ws://')+location.host+'/api/markers';
+  markerSocket=new WebSocket(url);
+  markerSocket.onopen=()=>{markerConnected=true;markerReconnect=0;document.dispatchEvent(new CustomEvent('fw:markers',{detail:true}));};
+  markerSocket.onmessage=(e)=>{try{const m=JSON.parse(e.data);if(m.type==='marker:snapshot')replaceMarkers(m.markers);else if(m.type==='marker:delete')removeMarker(m.id);else if(m.marker){markerState.set(m.marker.id,m.marker);if(m.marker.status==='lost')removeMarker(m.marker.id);else syncMarkerTarget(m.marker);summaryDirty=true;renderTargets(true);}}catch(error){console.warn('[markers] invalid event',error);}};
+  markerSocket.onclose=()=>{markerConnected=false;document.dispatchEvent(new CustomEvent('fw:markers',{detail:false}));setTimeout(connectMarkers,Math.min(30000,1000*2**markerReconnect++));};
+  markerSocket.onerror=()=>{try{markerSocket.close();}catch{}};
+}
 
 const $=q=>document.querySelector(q),$$=q=>[...document.querySelectorAll(q)];
 const rnd=(a,b)=>a+Math.random()*(b-a);
@@ -742,6 +776,10 @@ function loop(now){
   const hrs=dt/3600000*SPEEDUP;
   for(let i=targets.length-1;i>=0;i--){
     const tg=targets[i],r=tg.hd*Math.PI/180,cos=Math.cos(r),sin=Math.sin(r);
+    if(tg.real && tg.targetLo != null){
+      tg.lo += (tg.targetLo - tg.lo) * Math.min(1, dt / 1200);
+      tg.la += (tg.targetLa - tg.la) * Math.min(1, dt / 1200);
+    }
     tg.la+=cos*tg.sp*hrs/111;
     tg.lo+=sin*tg.sp*hrs/(111*Math.cos(tg.la*Math.PI/180));
     tg.hd+=Math.sin(now/2600+i)*0.028*(dt/16.667);
@@ -1021,7 +1059,8 @@ sync();
 /* Перший реальний запит тривог */
 await pollAlerts();
 
-for(let i = 0; i < 11; i++) spawn(true);
+if (demoMode) for(let i = 0; i < 11; i++) spawn(true);
+connectMarkers();
 renderTargets(true);
 
 let resizeQueued=false;
@@ -1037,7 +1076,7 @@ setInterval(() => {
   tickAlarms();
 }, 1000);
 
-setInterval(() => {
+if (demoMode) setInterval(() => {
   if (targets.length < 17) spawn();
 }, 5200);
 

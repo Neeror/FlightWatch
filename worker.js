@@ -1,4 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
+import { createState, processAlarm, processIngest, serializeMarkers } from './telegram-ingest/marker-tracker.mjs';
 
 const enc = new TextEncoder();
 
@@ -38,6 +39,31 @@ export async function verifyToken(token, secret) {
   }
 }
 
+async function sameSecret(received, expected) {
+  const a = enc.encode(String(received || '')), b = enc.encode(String(expected || ''));
+  const macKey = await key(expected || 'missing');
+  const [x, y] = await Promise.all([
+    crypto.subtle.sign('HMAC', macKey, a),
+    crypto.subtle.sign('HMAC', macKey, b),
+  ]);
+  const u = new Uint8Array(x), v = new Uint8Array(y);
+  let diff = u.length ^ v.length;
+  for (let i = 0; i < u.length; i += 1) diff |= u[i] ^ v[i];
+  return diff === 0;
+}
+
+const MAX_INGEST_BYTES = 16 * 1024;
+const UA_BOUNDS = { minLat: 43, maxLat: 53.5, minLon: 21, maxLon: 41.5 };
+function validIngestPayload(payload) {
+  if (!payload || typeof payload !== 'object' || !payload.ai || !Array.isArray(payload.ai.targets)) return false;
+  return payload.ai.targets.every((target) => {
+    const p = target.coordinates || target.position || target;
+    if (!p || (p.lat == null && p.latitude == null) || (p.lon == null && p.longitude == null && p.lng == null)) return true;
+    const lat = Number(p.lat ?? p.latitude), lon = Number(p.lon ?? p.longitude ?? p.lng);
+    return Number.isFinite(lat) && Number.isFinite(lon) && lat >= UA_BOUNDS.minLat && lat <= UA_BOUNDS.maxLat && lon >= UA_BOUNDS.minLon && lon <= UA_BOUNDS.maxLon;
+  });
+}
+
 async function samePassword(a, b, secret) {
   if (!a || !b) return false;
   const k = await key(secret);
@@ -71,6 +97,25 @@ export default {
           'Cache-Control': 'no-store',
         },
       });
+    }
+
+    if (url.pathname === '/ingest') {
+      if (request.method !== 'POST' || !await sameSecret((request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, ''), env.INGEST_SECRET)) return json({ error: 'unauthorized' }, 401);
+      const length = Number(request.headers.get('Content-Length') || 0);
+      if (length > MAX_INGEST_BYTES) return json({ error: 'bad request' }, 400);
+      const raw = await request.text();
+      if (new TextEncoder().encode(raw).byteLength > MAX_INGEST_BYTES) return json({ error: 'bad request' }, 400);
+      let payload;
+      try { payload = JSON.parse(raw); } catch { return json({ error: 'bad request' }, 400); }
+      if (!validIngestPayload(payload)) return json({ error: 'bad request' }, 400);
+      return env.MARKERS.get(env.MARKERS.idFromName('global')).fetch('https://markers/ingest', { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'application/json' } });
+    }
+
+    if (url.pathname === '/api/markers') {
+      if (request.headers.get('Upgrade') !== 'websocket') return json({ error: 'expected websocket' }, 426);
+      const origin = request.headers.get('Origin');
+      if (origin && new URL(origin).origin !== url.origin) return json({ error: 'forbidden' }, 403);
+      return env.MARKERS.get(env.MARKERS.idFromName('global')).fetch(request);
     }
 
     // ── вхід в адмінку ────────────────────────────────────────────
@@ -115,6 +160,43 @@ if (url.pathname === '/api/admin/online') {
 };
 
 
+
+export class MarkerState extends DurableObject {
+  async load() { return (await this.ctx.storage.get('state')) || createState(); }
+  async save(state, alarmAt) {
+    await this.ctx.storage.put('state', state);
+    if (alarmAt) await this.ctx.storage.setAlarm(alarmAt); else await this.ctx.storage.deleteAlarm();
+  }
+  async fetch(request) {
+    const url = new URL(request.url);
+    if (url.pathname === '/ingest') {
+      const payload = await request.json();
+      const result = processIngest(await this.load(), payload);
+      await this.save(result.state, result.nextAlarmAt);
+      for (const log of result.logs) console.warn('[markers]', log);
+      for (const item of result.events) this.broadcast(item);
+      return json({ ok: true, events: result.events.length });
+    }
+    if (request.headers.get('Upgrade') !== 'websocket') return json({ error: 'expected websocket' }, 426);
+    if (this.ctx.getWebSockets().length >= 500) return json({ error: 'too many connections' }, 503);
+    const [client, server] = Object.values(new WebSocketPair());
+    this.ctx.acceptWebSocket(server);
+    server.send(JSON.stringify({ type: 'marker:snapshot', markers: serializeMarkers(await this.load()) }));
+    return new Response(null, { status: 101, webSocket: client });
+  }
+  broadcast(message) {
+    const raw = JSON.stringify(message);
+    for (const ws of this.ctx.getWebSockets()) { try { ws.send(raw); } catch {} }
+  }
+  async alarm() {
+    const result = processAlarm(await this.load());
+    await this.save(result.state, result.nextAlarmAt);
+    for (const item of result.events) this.broadcast(item);
+  }
+  webSocketMessage() {}
+  webSocketClose() {}
+  webSocketError() {}
+}
 
 export class Presence extends DurableObject {
   async fetch(request) {
